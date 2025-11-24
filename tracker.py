@@ -2,21 +2,19 @@ import customtkinter as ctk
 from tkinter import messagebox
 import sqlite3
 from datetime import datetime
+from collections import defaultdict
 
 # --- Configuração Visual ---
-ctk.set_appearance_mode("Dark")  # Modos: "System", "Dark", "Light"
-ctk.set_default_color_theme("blue")  # Temas: "blue", "green", "dark-blue"
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
-# --- Listas de Dados (VOCÊ PODE ADICIONAR MAIS AQUI) ---
-# A chave é ter o nome exato para diferenciar as variantes
+# --- SEUS DADOS (Edite aqui) ---
 HEROIS = [
-    "Legacy", "Legacy (America's Greatest)", "Legacy (Young)",
+    "Legacy", "Legacy (America's Greatest)",
     "Expatriette", "Expatriette (Dark Watch)",
-    "Tachyon", "Tachyon (Super Scientific)",
-    "Ra", "Ra (Setting Sun)",
-    "Absolute Zero", "Wraith", "Bunker", "Haka", "Fanatic", "Visionary"
+    "Tachyon", "Ra", "Absolute Zero", "Wraith", "Bunker", "Haka", "Fanatic", "Visionary"
 ]
-HEROIS.sort() # Deixa em ordem alfabética
+HEROIS.sort()
 
 VILOES = [
     "Baron Blade", "Citizen Dawn", "Grand Warlord Voss", "Omnitron", 
@@ -34,7 +32,6 @@ AMBIENTES.sort()
 def init_db():
     conn = sqlite3.connect('sentinels_history.db')
     c = conn.cursor()
-    # Tabela simples para guardar o jogo
     c.execute('''CREATE TABLE IF NOT EXISTS games
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   date TEXT,
@@ -45,95 +42,128 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- Interface Gráfica ---
+# --- App Principal ---
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Sentinels of the Multiverse Tracker")
-        self.geometry("900x600")
+        self.title("Sentinels Tracker - v2.0")
+        self.geometry("1000x700")
 
-        # Layout de Grid (2 colunas)
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        # Criação das Abas
+        self.tabview = ctk.CTkTabview(self)
+        self.tabview.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # === Menu Lateral (Estatísticas Rápidas) ===
-        self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=0)
-        self.sidebar_frame.grid(row=0, column=0, rowspan=4, sticky="nsew")
-        
-        self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="DADOS DO\nMULTIVERSO", font=ctk.CTkFont(size=20, weight="bold"))
-        self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
+        self.tab_reg = self.tabview.add("Registrar Partida")
+        self.tab_stats = self.tabview.add("Estatísticas Detalhadas")
 
-        self.stats_label = ctk.CTkLabel(self.sidebar_frame, text="Carregando...", justify="left")
-        self.stats_label.grid(row=1, column=0, padx=20, pady=10)
+        # === ABA 1: REGISTRO ===
+        self.setup_register_tab()
 
-        self.refresh_btn = ctk.CTkButton(self.sidebar_frame, text="Atualizar Dados", command=self.update_stats)
-        self.refresh_btn.grid(row=2, column=0, padx=20, pady=10)
+        # === ABA 2: ESTATÍSTICAS ===
+        self.setup_stats_tab()
 
-        # === Área Principal (Registro) ===
-        self.main_frame = ctk.CTkScrollableFrame(self, label_text="Registrar Nova Partida")
-        self.main_frame.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
+    def setup_register_tab(self):
+        # Frame de rolagem para o formulário
+        scroll = ctk.CTkScrollableFrame(self.tab_reg, label_text="Dados da Partida")
+        scroll.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Seleção de Vilão
-        self.label_vilao = ctk.CTkLabel(self.main_frame, text="Vilão Enfrentado:")
-        self.label_vilao.pack(pady=(10, 0), anchor="w")
-        self.combo_vilao = ctk.CTkComboBox(self.main_frame, values=VILOES, width=300)
-        self.combo_vilao.pack(pady=(5, 10), anchor="w")
+        # Vilão
+        ctk.CTkLabel(scroll, text="Vilão Enfrentado:").pack(pady=(10, 0))
+        self.combo_vilao = ctk.CTkComboBox(scroll, values=VILOES, width=300)
+        self.combo_vilao.pack(pady=5)
 
-        # Seleção de Ambiente
-        self.label_env = ctk.CTkLabel(self.main_frame, text="Ambiente:")
-        self.label_env.pack(pady=(10, 0), anchor="w")
-        self.combo_env = ctk.CTkComboBox(self.main_frame, values=AMBIENTES, width=300)
-        self.combo_env.pack(pady=(5, 10), anchor="w")
+        # Ambiente
+        ctk.CTkLabel(scroll, text="Ambiente:").pack(pady=(10, 0))
+        self.combo_env = ctk.CTkComboBox(scroll, values=AMBIENTES, width=300)
+        self.combo_env.pack(pady=5)
 
         # Resultado
-        self.label_res = ctk.CTkLabel(self.main_frame, text="Resultado:")
-        self.label_res.pack(pady=(10, 0), anchor="w")
-        self.seg_result = ctk.CTkSegmentedButton(self.main_frame, values=["Vitória", "Derrota"])
+        ctk.CTkLabel(scroll, text="Resultado:").pack(pady=(10, 0))
+        self.seg_result = ctk.CTkSegmentedButton(scroll, values=["Vitória", "Derrota"])
         self.seg_result.set("Vitória")
-        self.seg_result.pack(pady=(5, 10), anchor="w")
+        self.seg_result.pack(pady=5)
 
-        # Seleção de Heróis (Vamos colocar 5 slots)
-        self.label_heroes = ctk.CTkLabel(self.main_frame, text="Heróis (3 a 5):", font=ctk.CTkFont(weight="bold"))
-        self.label_heroes.pack(pady=(20, 5), anchor="w")
-        
+        # Heróis
+        ctk.CTkLabel(scroll, text="Equipe de Heróis:", font=ctk.CTkFont(weight="bold")).pack(pady=(20, 5))
         self.hero_selectors = []
         for i in range(5):
-            lbl = ctk.CTkLabel(self.main_frame, text=f"Herói {i+1}:")
-            lbl.pack(anchor="w")
-            # Adiciona uma opção vazia para casos de menos de 5 heróis
-            combo = ctk.CTkComboBox(self.main_frame, values=["(Nenhum)"] + HEROIS, width=300)
-            combo.pack(pady=(0, 5), anchor="w")
+            combo = ctk.CTkComboBox(scroll, values=["(Nenhum)"] + HEROIS, width=300)
+            combo.pack(pady=2)
             self.hero_selectors.append(combo)
 
         # Botão Salvar
-        self.save_btn = ctk.CTkButton(self.main_frame, text="SALVAR PARTIDA", command=self.save_game, fg_color="green", hover_color="darkgreen")
-        self.save_btn.pack(pady=30)
+        btn = ctk.CTkButton(scroll, text="SALVAR PARTIDA", command=self.save_game, fg_color="green", height=40)
+        btn.pack(pady=30)
 
-        # Inicializa stats
-        self.update_stats()
+    def setup_stats_tab(self):
+        # Botão de atualizar no topo
+        self.btn_refresh = ctk.CTkButton(self.tab_stats, text="Atualizar Dados Agora", command=self.calculate_stats)
+        self.btn_refresh.pack(pady=10)
+
+        # Cria 3 colunas para os dados (Vilões, Ambientes, Heróis)
+        self.stats_frame = ctk.CTkFrame(self.tab_stats)
+        self.stats_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        self.stats_frame.grid_columnconfigure(0, weight=1)
+        self.stats_frame.grid_columnconfigure(1, weight=1)
+        self.stats_frame.grid_columnconfigure(2, weight=1)
+
+        # Coluna Vilões
+        self.frame_v = ctk.CTkScrollableFrame(self.stats_frame, label_text="Win Rate vs Vilões")
+        self.frame_v.grid(row=0, column=0, sticky="nsew", padx=5)
+        self.lbl_stats_v = ctk.CTkLabel(self.frame_v, text="Sem dados.", justify="left")
+        self.lbl_stats_v.pack(padx=5, pady=5, anchor="w")
+
+        # Coluna Ambientes
+        self.frame_e = ctk.CTkScrollableFrame(self.stats_frame, label_text="Win Rate em Ambientes")
+        self.frame_e.grid(row=0, column=1, sticky="nsew", padx=5)
+        self.lbl_stats_e = ctk.CTkLabel(self.frame_e, text="Sem dados.", justify="left")
+        self.lbl_stats_e.pack(padx=5, pady=5, anchor="w")
+
+        # Coluna Heróis
+        self.frame_h = ctk.CTkScrollableFrame(self.stats_frame, label_text="Win Rate dos Heróis")
+        self.frame_h.grid(row=0, column=2, sticky="nsew", padx=5)
+        self.lbl_stats_h = ctk.CTkLabel(self.frame_h, text="Sem dados.", justify="left")
+        self.lbl_stats_h.pack(padx=5, pady=5, anchor="w")
+        
+        # Carrega dados iniciais
+        self.calculate_stats()
 
     def save_game(self):
         villain = self.combo_vilao.get()
         env = self.combo_env.get()
         result = self.seg_result.get()
         
-        # Coletar heróis (ignorando os vazios)
-        selected_heroes = []
-        for selector in self.hero_selectors:
-            h = selector.get()
-            if h != "(Nenhum)":
-                selected_heroes.append(h)
+        # Pega a lista de heróis selecionados (ignorando os vazios)
+        selected_heroes = [s.get() for s in self.hero_selectors if s.get() != "(Nenhum)"]
         
+        # 1. Validação de quantidade mínima
         if len(selected_heroes) < 3:
             messagebox.showwarning("Atenção", "Selecione pelo menos 3 heróis!")
             return
 
-        # Formatar heróis como string para o banco simples (Ex: "Legacy,Ra,Wraith")
+        # 2. Validação de "Personagem Único" (NOVA LÓGICA)
+        personagens_na_mesa = set()
+        
+        for heroi_completo in selected_heroes:
+            # Pega o nome base. Ex: "Legacy (Young)" vira apenas "Legacy"
+            # O split(" (")[0] pega tudo antes do primeiro " ("
+            nome_base = heroi_completo.split(" (")[0]
+            
+            if nome_base in personagens_na_mesa:
+                messagebox.showerror("Erro de Regra", 
+                    f"Conflito de Personagem!\n\n"
+                    f"O personagem '{nome_base}' já está na equipe.\n"
+                    "Você não pode usar o mesmo herói e sua variante juntos.")
+                return
+            
+            personagens_na_mesa.add(nome_base)
+
+        # 3. Se passou das validações, salva no banco
         heroes_str = ",".join(selected_heroes)
         date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        # Salvar no SQLite
         conn = sqlite3.connect('sentinels_history.db')
         c = conn.cursor()
         c.execute("INSERT INTO games (date, villain, environment, result, heroes) VALUES (?, ?, ?, ?, ?)",
@@ -142,33 +172,60 @@ class TrackerApp(ctk.CTk):
         conn.close()
 
         messagebox.showinfo("Sucesso", "Partida registrada com sucesso!")
-        self.update_stats()
+        
+        # Limpa seleção para o próximo jogo
+        for s in self.hero_selectors: s.set("(Nenhum)")
+        
+        # Atualiza a aba de stats
+        self.calculate_stats()
 
-    def update_stats(self):
+    def calculate_stats(self):
         conn = sqlite3.connect('sentinels_history.db')
         c = conn.cursor()
-        
-        # Puxar dados gerais
-        c.execute("SELECT result FROM games")
-        results = c.fetchall()
+        c.execute("SELECT villain, environment, result, heroes FROM games")
+        rows = c.fetchall()
         conn.close()
 
-        total_games = len(results)
-        if total_games == 0:
-            self.stats_label.configure(text="Nenhuma partida\nregistrada ainda.")
+        if not rows:
             return
 
-        wins = sum(1 for r in results if r[0] == "Vitória")
-        losses = total_games - wins
-        winrate = (wins / total_games) * 100
+        # Dicionários para contar: { "Nome": [vitorias, total_jogos] }
+        stats_villain = defaultdict(lambda: [0, 0])
+        stats_env = defaultdict(lambda: [0, 0])
+        stats_hero = defaultdict(lambda: [0, 0])
 
-        stats_text = (
-            f"Total de Jogos: {total_games}\n\n"
-            f"Vitórias: {wins}\n"
-            f"Derrotas: {losses}\n\n"
-            f"Win Rate Geral:\n{winrate:.1f}%"
-        )
-        self.stats_label.configure(text=stats_text)
+        for v, e, res, h_str in rows:
+            win = 1 if res == "Vitória" else 0
+            
+            # Vilão
+            stats_villain[v][0] += win
+            stats_villain[v][1] += 1
+            
+            # Ambiente
+            stats_env[e][0] += win
+            stats_env[e][1] += 1
+            
+            # Heróis (separa a string e conta cada um individualmente)
+            heroes_list = h_str.split(",")
+            for hero in heroes_list:
+                stats_hero[hero][0] += win
+                stats_hero[hero][1] += 1
+
+        # Função auxiliar para formatar texto
+        def format_text(stats_dict):
+            # Ordena por quem tem mais jogos
+            items = sorted(stats_dict.items(), key=lambda x: x[1][1], reverse=True)
+            text = ""
+            for nome, dados in items:
+                wins, total = dados
+                pct = (wins / total) * 100
+                # Ex: Baron Blade: 66% (2/3)
+                text += f"{nome}\n  WR: {pct:.1f}% ({wins}/{total})\n\n"
+            return text
+
+        self.lbl_stats_v.configure(text=format_text(stats_villain))
+        self.lbl_stats_e.configure(text=format_text(stats_env))
+        self.lbl_stats_h.configure(text=format_text(stats_hero))
 
 if __name__ == "__main__":
     init_db()
