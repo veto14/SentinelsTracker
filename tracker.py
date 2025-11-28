@@ -8,8 +8,7 @@ from collections import defaultdict
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
-# --- ESTRUTURA DE DADOS INTELIGENTE ---
-# Dicionário: "Nome do Herói": ["Lista de Variantes"]
+# --- DADOS DOS HERÓIS (COM VARIANTES) ---
 HEROES_DATA = {
     "Legacy": ["Base", "America's Greatest", "Young", "Freedom Five"],
     "Bunker": ["Base", "G.I.", "Freedom Five", "Termi-Nation"],
@@ -37,7 +36,7 @@ HEROES_DATA = {
     "The Naturalist": ["Base", "Hunted"],
     "Sentinels": ["Base", "Adamant"],
     "Guise": ["Base", "Santa"],
-    "Stuntman": ["Base", "Action Hero"], # Exemplo
+    "Stuntman": ["Base", "Action Hero"],
     "Benchmark": ["Base"],
     "La Comodora": ["Base"],
     "Lifeline": ["Base"],
@@ -45,10 +44,9 @@ HEROES_DATA = {
     "Luminary": ["Base"]
 }
 
-# Modos/Variantes Genéricos de Vilão
+# --- DADOS DOS VILÕES SOLO ---
 MODOS_VILAO = ["Normal", "Advanced", "Challenge", "Ultimate"]
-# Se tiver vilões com variantes específicas (ex: Skinwalker Gloomweaver), adicione aqui
-VILLAINS_DATA = {
+SOLO_VILLAINS_DATA = {
     "Baron Blade": MODOS_VILAO,
     "Citizen Dawn": MODOS_VILAO,
     "Grand Warlord Voss": MODOS_VILAO,
@@ -56,7 +54,7 @@ VILLAINS_DATA = {
     "Spite": MODOS_VILAO,
     "The Chairman": MODOS_VILAO,
     "Akash'Bhuta": MODOS_VILAO,
-    "GloomWeaver": MODOS_VILAO + ["Skinwalker"], # Exemplo de variante específica
+    "GloomWeaver": MODOS_VILAO + ["Skinwalker"],
     "The Matriarch": MODOS_VILAO,
     "Plague Rat": MODOS_VILAO,
     "Ennead": MODOS_VILAO,
@@ -69,8 +67,18 @@ VILLAINS_DATA = {
     "Progeny": MODOS_VILAO,
     "Deadline": MODOS_VILAO,
     "Infinitor": MODOS_VILAO,
-    "OblivAeon": ["Normal", "Advanced"] # OblivAeon tem regras próprias
+    "OblivAeon": ["Normal", "Advanced"]
 }
+
+# --- DADOS DOS VILÕES DE TIME (Vengeance / Villains of the Multiverse) ---
+# Estes são contabilizados separadamente
+TEAM_VILLAINS_LIST = [
+    "Baron Blade", "Friction", "Fright Train", "Proletariat", "Ermine", # Vengeful Five
+    "Vander", "Dr. Tremata", "Marcato", "Honored Maidens", "Pariah", # Vengeance Others
+    "Ambuscade", "Biomancer", "Bugbear", "Citizen Hammer", "Greazer", 
+    "La Capitan", "Miss Information", "Plague Rat", "Sergeant Steel", "The Operative" # Villains of Multiverse
+]
+TEAM_VILLAINS_LIST.sort()
 
 AMBIENTES = [
     "Megalopolis", "Insula Primalis", "Ruins of Atlantis", 
@@ -81,36 +89,47 @@ AMBIENTES = [
 ]
 AMBIENTES.sort()
 
+# --- BANCO DE DADOS COM MIGRAÇÃO ---
 def init_db():
     conn = sqlite3.connect('sentinels_history.db')
     c = conn.cursor()
+    
+    # Cria a tabela base se não existir
     c.execute('''CREATE TABLE IF NOT EXISTS games
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   date TEXT,
                   villain TEXT,
                   environment TEXT,
                   result TEXT,
-                  heroes TEXT)''')
+                  heroes TEXT,
+                  game_type TEXT DEFAULT 'SOLO')''')
+    
+    # Migração: Verifica se a coluna game_type existe (para quem já rodou o código antigo)
+    c.execute("PRAGMA table_info(games)")
+    columns = [info[1] for info in c.fetchall()]
+    if 'game_type' not in columns:
+        try:
+            c.execute("ALTER TABLE games ADD COLUMN game_type TEXT DEFAULT 'SOLO'")
+            print("Banco de dados atualizado: Coluna game_type adicionada.")
+        except Exception as e:
+            print(f"Erro na migração: {e}")
+
     conn.commit()
     conn.close()
 
-# --- COMPONENTE CUSTOMIZADO PARA SELEÇÃO DE HERÓI ---
+# --- WIDGET SELETOR DE HERÓI (Reutilizável) ---
 class HeroSelector(ctk.CTkFrame):
     def __init__(self, master, label_text, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
-        
         self.label = ctk.CTkLabel(self, text=label_text, width=60, anchor="w")
         self.label.grid(row=0, column=0, padx=5)
-
-        # Combo de Personagem
-        hero_names = ["(Nenhum)"] + sorted(list(HEROES_DATA.keys()))
-        self.hero_combo = ctk.CTkComboBox(self, values=hero_names, command=self.update_variants, width=200)
+        
+        names = ["(Nenhum)"] + sorted(list(HEROES_DATA.keys()))
+        self.hero_combo = ctk.CTkComboBox(self, values=names, command=self.update_variants, width=200)
         self.hero_combo.grid(row=0, column=1, padx=5)
-
-        # Combo de Variante
-        self.variant_combo = ctk.CTkComboBox(self, values=["-"], width=150)
+        
+        self.variant_combo = ctk.CTkComboBox(self, values=["-"], width=150, state="disabled")
         self.variant_combo.grid(row=0, column=2, padx=5)
-        self.variant_combo.configure(state="disabled") # Começa desativado
 
     def update_variants(self, choice):
         if choice == "(Nenhum)":
@@ -119,27 +138,24 @@ class HeroSelector(ctk.CTkFrame):
         else:
             variants = HEROES_DATA.get(choice, ["Base"])
             self.variant_combo.configure(values=variants, state="normal")
-            self.variant_combo.set("Base") # Padrão é Base
+            self.variant_combo.set("Base")
 
     def get_selection(self):
-        hero = self.hero_combo.get()
-        variant = self.variant_combo.get()
-        
-        if hero == "(Nenhum)":
-            return None
-        
-        # Formata para salvar: "Legacy" (se Base) ou "Legacy (Young)"
-        if variant == "Base":
-            return hero
-        else:
-            return f"{hero} ({variant})"
+        h = self.hero_combo.get()
+        v = self.variant_combo.get()
+        if h == "(Nenhum)": return None
+        return h if v == "Base" else f"{h} ({v})"
+    
+    def reset(self):
+        self.hero_combo.set("(Nenhum)")
+        self.update_variants("(Nenhum)")
 
 # --- APP PRINCIPAL ---
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker - v4.0 (Smart Select)")
-        self.geometry("1100x750")
+        self.title("Sentinels Tracker - v5.0 (Villain Teams)")
+        self.geometry("1100x800")
 
         self.tabview = ctk.CTkTabview(self)
         self.tabview.pack(fill="both", expand=True, padx=20, pady=20)
@@ -149,60 +165,93 @@ class TrackerApp(ctk.CTk):
         self.setup_register_tab()
         self.setup_stats_tab()
 
+    # ================= ABA REGISTRO =================
     def setup_register_tab(self):
         scroll = ctk.CTkScrollableFrame(self.tab_reg, label_text="Nova Partida")
         scroll.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # --- SEÇÃO DO VILÃO ---
-        frame_vilao = ctk.CTkFrame(scroll, fg_color="transparent")
-        frame_vilao.pack(pady=10, anchor="w")
-        
-        ctk.CTkLabel(frame_vilao, text="Vilão:", width=60, anchor="w").grid(row=0, column=0, padx=5)
-        self.combo_vilao_nome = ctk.CTkComboBox(frame_vilao, values=sorted(list(VILLAINS_DATA.keys())), 
-                                                command=self.update_villain_modes, width=200)
-        self.combo_vilao_nome.grid(row=0, column=1, padx=5)
-        
-        self.combo_vilao_modo = ctk.CTkComboBox(frame_vilao, values=["Normal"], width=150)
-        self.combo_vilao_modo.grid(row=0, column=2, padx=5)
-        self.update_villain_modes(self.combo_vilao_nome.get()) # Inicializa
+        # 1. Escolha do Modo de Jogo
+        ctk.CTkLabel(scroll, text="Tipo de Jogo:", font=ctk.CTkFont(weight="bold")).pack(pady=(10, 5))
+        self.seg_gamemode = ctk.CTkSegmentedButton(scroll, values=["Solo", "Time de Vilões"], command=self.toggle_villain_mode)
+        self.seg_gamemode.set("Solo")
+        self.seg_gamemode.pack(pady=5)
 
-        # --- AMBIENTE ---
-        frame_env = ctk.CTkFrame(scroll, fg_color="transparent")
-        frame_env.pack(pady=5, anchor="w")
-        ctk.CTkLabel(frame_env, text="Ambiente:", width=60, anchor="w").grid(row=0, column=0, padx=5)
-        self.combo_env = ctk.CTkComboBox(frame_env, values=AMBIENTES, width=360)
-        self.combo_env.grid(row=0, column=1, padx=5)
+        # 2. Frames dos Vilões (Um para Solo, Um para Time)
+        
+        # --- FRAME SOLO ---
+        self.frame_solo = ctk.CTkFrame(scroll, fg_color="transparent")
+        ctk.CTkLabel(self.frame_solo, text="Vilão:", width=60, anchor="w").grid(row=0, column=0, padx=5)
+        self.combo_solo_name = ctk.CTkComboBox(self.frame_solo, values=sorted(list(SOLO_VILLAINS_DATA.keys())), 
+                                               command=self.update_solo_modes, width=200)
+        self.combo_solo_name.grid(row=0, column=1, padx=5)
+        self.combo_solo_mode = ctk.CTkComboBox(self.frame_solo, values=["Normal"], width=150)
+        self.combo_solo_mode.grid(row=0, column=2, padx=5)
+        self.update_solo_modes(self.combo_solo_name.get())
+        
+        # --- FRAME TIME ---
+        self.frame_team = ctk.CTkFrame(scroll, fg_color="transparent")
+        ctk.CTkLabel(self.frame_team, text="Membros do Time de Vilões (3 a 5):", font=ctk.CTkFont(weight="bold")).pack(pady=(0,5))
+        self.team_villain_combos = []
+        for i in range(5):
+            lbl = ctk.CTkLabel(self.frame_team, text=f"Vilão {i+1}:")
+            lbl.pack(anchor="w", padx=20)
+            combo = ctk.CTkComboBox(self.frame_team, values=["(Nenhum)"] + TEAM_VILLAINS_LIST, width=300)
+            combo.pack(anchor="w", padx=20, pady=2)
+            self.team_villain_combos.append(combo)
 
-        # --- RESULTADO ---
+        # Inicializa mostrando o Solo
+        self.frame_solo.pack(pady=10, anchor="center")
+
+        # 3. Ambiente
+        ctk.CTkLabel(scroll, text="Ambiente:", font=ctk.CTkFont(weight="bold")).pack(pady=(15, 5))
+        self.combo_env = ctk.CTkComboBox(scroll, values=AMBIENTES, width=300)
+        self.combo_env.pack(pady=5)
+
+        # 4. Resultado
         ctk.CTkLabel(scroll, text="Resultado:", font=ctk.CTkFont(weight="bold")).pack(pady=(15, 5))
         self.seg_result = ctk.CTkSegmentedButton(scroll, values=["Vitória", "Derrota"])
         self.seg_result.set("Vitória")
         self.seg_result.pack(pady=5)
 
-        # --- SELEÇÃO DE HERÓIS ---
-        ctk.CTkLabel(scroll, text="Equipe (Selecione Herói e Variante):", font=ctk.CTkFont(weight="bold")).pack(pady=(20, 10))
-        
+        # 5. Heróis
+        ctk.CTkLabel(scroll, text="Equipe de Heróis:", font=ctk.CTkFont(weight="bold")).pack(pady=(20, 10))
         self.hero_selectors = []
         for i in range(5):
-            # Instancia nossa classe customizada
-            selector = HeroSelector(scroll, label_text=f"Herói {i+1}:")
-            selector.pack(pady=2, anchor="w")
-            self.hero_selectors.append(selector)
+            sel = HeroSelector(scroll, f"Herói {i+1}:")
+            sel.pack(pady=2)
+            self.hero_selectors.append(sel)
 
         # Botão Salvar
-        btn = ctk.CTkButton(scroll, text="SALVAR PARTIDA", command=self.save_game, fg_color="green", height=40)
-        btn.pack(pady=30)
+        ctk.CTkButton(scroll, text="SALVAR PARTIDA", command=self.save_game, fg_color="green", height=40).pack(pady=30)
 
-    def update_villain_modes(self, choice):
-        modes = VILLAINS_DATA.get(choice, ["Normal"])
-        self.combo_vilao_modo.configure(values=modes)
-        self.combo_vilao_modo.set("Normal")
+    def toggle_villain_mode(self, mode):
+        # Esconde ambos e mostra só o selecionado
+        self.frame_solo.pack_forget()
+        self.frame_team.pack_forget()
+        
+        if mode == "Solo":
+            self.frame_solo.pack(pady=10)
+        else:
+            self.frame_team.pack(pady=10)
 
+    def update_solo_modes(self, choice):
+        modes = SOLO_VILLAINS_DATA.get(choice, ["Normal"])
+        self.combo_solo_mode.configure(values=modes)
+        self.combo_solo_mode.set("Normal")
+
+    # ================= ABA STATS =================
     def setup_stats_tab(self):
-        # A aba de stats permanece a mesma lógica, pois salvamos os dados no formato antigo
-        self.btn_refresh = ctk.CTkButton(self.tab_stats, text="Atualizar Dados", command=self.calculate_stats)
-        self.btn_refresh.pack(pady=10)
+        # Filtro de Stats
+        top_frame = ctk.CTkFrame(self.tab_stats, fg_color="transparent")
+        top_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkButton(top_frame, text="Atualizar", command=self.calculate_stats, width=100).pack(side="right", padx=10)
+        
+        self.seg_stats_mode = ctk.CTkSegmentedButton(top_frame, values=["Stats Solo", "Stats Time"], command=lambda x: self.calculate_stats())
+        self.seg_stats_mode.set("Stats Solo")
+        self.seg_stats_mode.pack(side="left", padx=10)
 
+        # Grid de Colunas
         self.stats_frame = ctk.CTkFrame(self.tab_stats)
         self.stats_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
@@ -232,97 +281,138 @@ class TrackerApp(ctk.CTk):
         
         self.calculate_stats()
 
+    # ================= LÓGICA DE SALVAMENTO =================
     def save_game(self):
-        # 1. Pega Vilão + Modo
-        v_name = self.combo_vilao_nome.get()
-        v_mode = self.combo_vilao_modo.get()
-        
-        # Formata: "Baron Blade" (se Normal) ou "Baron Blade (Advanced)"
-        if v_mode == "Normal":
-            villain_final = v_name
-        else:
-            villain_final = f"{v_name} ({v_mode})"
-            
+        mode_label = self.seg_gamemode.get()
+        game_type = "SOLO" if mode_label == "Solo" else "TEAM"
         env = self.combo_env.get()
         result = self.seg_result.get()
+
+        # 1. Captura Vilão(ões)
+        villain_str = ""
+        if game_type == "SOLO":
+            v_name = self.combo_solo_name.get()
+            v_mode = self.combo_solo_mode.get()
+            villain_str = v_name if v_mode == "Normal" else f"{v_name} ({v_mode})"
+        else:
+            # Time de Vilões: Pega todos os selecionados
+            team_list = [c.get() for c in self.team_villain_combos if c.get() != "(Nenhum)"]
+            if len(team_list) < 3:
+                messagebox.showwarning("Erro", "Times de vilões precisam de pelo menos 3 vilões!")
+                return
+            
+            # Checa duplicatas no time de vilões (ex: 2 Baron Blades)
+            if len(team_list) != len(set(team_list)):
+                messagebox.showwarning("Erro", "Você selecionou o mesmo vilão duas vezes!")
+                return
+            villain_str = ",".join(team_list)
+
+        # 2. Captura Heróis
+        hero_list = []
+        for sel in self.hero_selectors:
+            val = sel.get_selection()
+            if val: hero_list.append(val)
         
-        # 2. Pega Heróis usando a nova classe
-        selected_heroes = []
-        for selector in self.hero_selectors:
-            h_str = selector.get_selection() # Retorna "Nome (Variante)" ou None
-            if h_str:
-                selected_heroes.append(h_str)
-        
-        if len(selected_heroes) < 3:
+        if len(hero_list) < 3:
             messagebox.showwarning("Erro", "Selecione pelo menos 3 heróis!")
             return
 
-        # 3. Validação de Personagem Único (Rule of the Multiverse)
-        personagens_base = set()
-        for h in selected_heroes:
-            # Pega o nome base antes do parênteses
-            base = h.split(" (")[0]
-            if base in personagens_base:
-                messagebox.showerror("Conflito", f"O herói '{base}' já está na equipe!\nVocê não pode selecionar duas variantes do mesmo herói.")
+        # 3. Validação Regra do Multiverso (Heróis)
+        bases = set()
+        for h in hero_list:
+            b = h.split(" (")[0]
+            if b in bases:
+                messagebox.showerror("Conflito", f"O herói '{b}' já está no time!")
                 return
-            personagens_base.add(base)
+            bases.add(b)
 
-        # 4. Salvar
-        heroes_str = ",".join(selected_heroes)
-        date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-        conn = sqlite3.connect('sentinels_history.db')
-        c = conn.cursor()
-        c.execute("INSERT INTO games (date, villain, environment, result, heroes) VALUES (?, ?, ?, ?, ?)",
-                  (date_str, villain_final, env, result, heroes_str))
-        conn.commit()
-        conn.close()
-
-        messagebox.showinfo("Sucesso", "Partida salva!")
-        
-        # Reset visual
-        for selector in self.hero_selectors:
-            selector.hero_combo.set("(Nenhum)")
-            selector.update_variants("(Nenhum)")
+        # 4. Salvar no Banco
+        try:
+            conn = sqlite3.connect('sentinels_history.db')
+            c = conn.cursor()
+            date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+            c.execute("""
+                INSERT INTO games (date, villain, environment, result, heroes, game_type) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (date_str, villain_str, env, result, ",".join(hero_list), game_type))
+            conn.commit()
+            conn.close()
             
-        self.calculate_stats()
+            messagebox.showinfo("Sucesso", f"Partida {game_type} salva com sucesso!")
+            
+            # Limpa formulário
+            for sel in self.hero_selectors: sel.reset()
+            for c in self.team_villain_combos: c.set("(Nenhum)")
+            self.calculate_stats()
+            
+        except Exception as e:
+            messagebox.showerror("Erro ao Salvar", str(e))
 
+    # ================= LÓGICA DE ESTATÍSTICAS =================
     def calculate_stats(self):
-        # Lógica idêntica ao anterior, pois o formato do texto salvo é compatível
+        current_mode_label = self.seg_stats_mode.get() # "Stats Solo" ou "Stats Time"
+        db_type = "SOLO" if current_mode_label == "Stats Solo" else "TEAM"
+
         conn = sqlite3.connect('sentinels_history.db')
         c = conn.cursor()
-        c.execute("SELECT villain, environment, result, heroes FROM games")
+        # Filtra pelo game_type!
+        c.execute("SELECT villain, environment, result, heroes FROM games WHERE game_type=?", (db_type,))
         rows = c.fetchall()
         conn.close()
 
-        if not rows: return
+        # Reseta labels se não tiver dados
+        if not rows:
+            msg = "Sem dados."
+            self.lbl_stats_v.configure(text=msg); self.lbl_stats_e.configure(text=msg)
+            self.lbl_stats_s.configure(text=msg); self.lbl_stats_h.configure(text=msg)
+            return
 
-        stats_villain = defaultdict(lambda: [0, 0])
-        stats_env = defaultdict(lambda: [0, 0])
-        stats_hero = defaultdict(lambda: [0, 0])
-        stats_size = defaultdict(lambda: [0, 0])
+        stats_v = defaultdict(lambda: [0, 0])
+        stats_e = defaultdict(lambda: [0, 0])
+        stats_h = defaultdict(lambda: [0, 0])
+        stats_s = defaultdict(lambda: [0, 0])
 
-        for v, e, res, h_str in rows:
+        for v_str, env, res, h_str in rows:
             win = 1 if res == "Vitória" else 0
-            stats_villain[v][0] += win; stats_villain[v][1] += 1
-            stats_env[e][0] += win; stats_env[e][1] += 1
-            heroes_list = h_str.split(",")
-            for hero in heroes_list:
-                stats_hero[hero][0] += win; stats_hero[hero][1] += 1
-            stats_size[len(heroes_list)][0] += win; stats_size[len(heroes_list)][1] += 1
+            
+            # Estatística de Vilão
+            if db_type == "SOLO":
+                # No Solo, v_str é o nome único (ex: "Baron Blade")
+                stats_v[v_str][0] += win
+                stats_v[v_str][1] += 1
+            else:
+                # No Time, v_str é uma lista (ex: "Baron Blade,Friction,Proletariat")
+                # Vamos contar winrate INDIVIDUAL contra cada membro do time
+                members = v_str.split(",")
+                for m in members:
+                    stats_v[m][0] += win
+                    stats_v[m][1] += 1
 
-        def format_text(stats_dict, sort_key=False):
-            items = sorted(stats_dict.items(), key=lambda x: x[0] if sort_key else x[1][1], reverse=not sort_key)
-            text = ""
-            for nome, dados in items:
-                prefixo = f"{nome} Heróis" if isinstance(nome, int) else nome
-                text += f"{prefixo}\n  WR: {(dados[0]/dados[1])*100:.1f}% ({dados[0]}/{dados[1]})\n\n"
-            return text
+            # Ambiente
+            stats_e[env][0] += win; stats_e[env][1] += 1
+            
+            # Heróis
+            h_list = h_str.split(",")
+            for h in h_list:
+                stats_h[h][0] += win; stats_h[h][1] += 1
+            
+            # Tamanho do Time
+            stats_s[len(h_list)][0] += win; stats_s[len(h_list)][1] += 1
 
-        self.lbl_stats_v.configure(text=format_text(stats_villain))
-        self.lbl_stats_e.configure(text=format_text(stats_env))
-        self.lbl_stats_h.configure(text=format_text(stats_hero))
-        self.lbl_stats_s.configure(text=format_text(stats_size, True))
+        # Formatação
+        def fmt(d, sort_key=False):
+            items = sorted(d.items(), key=lambda x: x[0] if sort_key else x[1][1], reverse=not sort_key)
+            txt = ""
+            for k, v in items:
+                prefix = f"{k} Heróis" if isinstance(k, int) else k
+                pct = (v[0]/v[1])*100
+                txt += f"{prefix}\n  {pct:.0f}% ({v[0]}/{v[1]})\n\n"
+            return txt
+
+        self.lbl_stats_v.configure(text=fmt(stats_v))
+        self.lbl_stats_e.configure(text=fmt(stats_e))
+        self.lbl_stats_h.configure(text=fmt(stats_h))
+        self.lbl_stats_s.configure(text=fmt(stats_s, True))
 
 if __name__ == "__main__":
     try:
@@ -330,13 +420,7 @@ if __name__ == "__main__":
         app = TrackerApp()
         app.mainloop()
     except Exception as e:
-        import traceback
         import tkinter as tk
         from tkinter import messagebox
-        
-        # Cria uma janelinha nativa só para mostrar o erro
-        root = tk.Tk()
-        root.withdraw() # Esconde a janela principal do tk
-        error_msg = traceback.format_exc()
-        print(error_msg) # Imprime no terminal também
-        messagebox.showerror("Erro Fatal", f"Ocorreu um erro ao iniciar:\n\n{e}\n\nDetalhes:\n{error_msg}")
+        root = tk.Tk(); root.withdraw()
+        messagebox.showerror("Erro Fatal", str(e))
