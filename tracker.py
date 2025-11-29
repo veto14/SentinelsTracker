@@ -3,6 +3,7 @@ from tkinter import messagebox
 import sqlite3
 from datetime import datetime
 from collections import defaultdict
+import math
 
 # --- CONFIGURAÇÃO VISUAL ---
 ctk.set_appearance_mode("Dark")
@@ -10,12 +11,17 @@ ctk.set_default_color_theme("dark-blue")
 
 # --- FONTES ---
 FONT_BIG_NUMBER = ("Roboto", 40, "bold")
+FONT_MED_NUMBER = ("Roboto", 24, "bold") 
 FONT_HEADER = ("Roboto Medium", 16)
 FONT_CARD_TITLE = ("Roboto", 12, "bold")
 FONT_NORMAL = ("Roboto", 12)
 FONT_MONO = ("Consolas", 12)
+# NOVAS FONTES PARA OS INSIGHTS
+FONT_INSIGHT_TITLE = ("Roboto", 16, "bold")
+FONT_INSIGHT_CONTENT = ("Roboto", 14)
 
-# --- DADOS (Mantidos) ---
+
+# --- DADOS (HEROES_DATA, VILLAINS, ETC - MANTIDOS IGUAIS) ---
 HEROES_DATA = {
     "Legacy": ["Base", "America's Greatest", "Young", "Freedom Five"],
     "Bunker": ["Base", "G.I.", "Freedom Five", "Termi-Nation"],
@@ -147,21 +153,33 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Multiverse Tracker v7.0")
+        self.title("Sentinels Multiverse Tracker v10.0")
         self.geometry("1280x800")
         
+        # INICIALIZA VARIÁVEIS SEGURAS
+        self.insight_labels = [] 
+        self.seg_stats_mode = None
+        self.combo_hero_analysis = None
+        self.combo_variant_analysis = None
+        self.combo_diff_filter = None
+
         self.main_container = ctk.CTkTabview(self, corner_radius=15)
         self.main_container.pack(fill="both", expand=True, padx=15, pady=15)
 
         self.tab_reg = self.main_container.add("  REGISTRAR  ")
-        self.tab_overview = self.main_container.add("  VISÃO GERAL  ") # NOVA ABA
+        self.tab_overview = self.main_container.add("  VISÃO GERAL  ")
+        self.tab_heroes = self.main_container.add("  HERÓIS  ")
         self.tab_stats = self.main_container.add("  DETALHES  ")
 
         self.setup_register_tab()
         self.setup_overview_tab()
         self.setup_stats_tab()
+        self.setup_hero_tab()
+        
+        # Garante que roda só depois de tudo pronto
+        self.after(500, self.refresh_all_data) 
 
-    # ================= 1. ABA REGISTRAR =================
+    # --- SETUP TABS ---
     def setup_register_tab(self):
         self.tab_reg.grid_columnconfigure(0, weight=1, uniform="g1")
         self.tab_reg.grid_columnconfigure(1, weight=1, uniform="g1")
@@ -227,50 +245,105 @@ class TrackerApp(ctk.CTk):
             sel.pack(padx=15, pady=6, fill="x")
             self.hero_selectors.append(sel)
 
-    # ================= 2. ABA VISÃO GERAL (NOVA) =================
     def setup_overview_tab(self):
-        # Topo: Total de Jogos
         self.frame_total = ctk.CTkFrame(self.tab_overview, fg_color="transparent")
         self.frame_total.pack(fill="x", pady=20)
-        
         ctk.CTkLabel(self.frame_total, text="TOTAL DE PARTIDAS", font=("Roboto", 16, "bold"), text_color="gray").pack()
         self.lbl_total_games = ctk.CTkLabel(self.frame_total, text="0", font=FONT_BIG_NUMBER, text_color="#2CC985")
         self.lbl_total_games.pack()
-        
         ctk.CTkButton(self.frame_total, text="Atualizar Dados", command=self.refresh_all_data, 
                       height=25, width=100, fg_color="#333").pack(pady=5)
 
-        # Grid para os Top 5
         self.grid_overview = ctk.CTkFrame(self.tab_overview, fg_color="transparent")
         self.grid_overview.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        # 3 colunas, 2 linhas
         for i in range(3): self.grid_overview.grid_columnconfigure(i, weight=1)
         for i in range(2): self.grid_overview.grid_rowconfigure(i, weight=1)
 
-        # Criação dos Cards
         self.card_hero_played = self.create_stat_card(0, 0, "Heróis Mais Jogados")
-        self.card_hero_best = self.create_stat_card(0, 1, "Melhores Heróis (Winrate)", color="#1a4d1a") # Verde escuro
-        self.card_hero_worst = self.create_stat_card(0, 2, "Piores Heróis (Winrate)", color="#4d1a1a") # Vermelho escuro
-        
+        self.card_hero_best = self.create_stat_card(0, 1, "Melhores Heróis (Winrate)", color="#1a4d1a")
+        self.card_hero_worst = self.create_stat_card(0, 2, "Piores Heróis (Winrate)", color="#4d1a1a")
         self.card_villain_played = self.create_stat_card(1, 0, "Vilões Favoritos")
         self.card_villain_hardest = self.create_stat_card(1, 1, "Vilões Mais Difíceis", color="#4d1a1a")
         self.card_env_played = self.create_stat_card(1, 2, "Ambientes Mais Jogados")
 
-        #self.refresh_all_data()
-
     def create_stat_card(self, row, col, title, color="#2b2b2b"):
         frame = ctk.CTkFrame(self.grid_overview, fg_color=color, corner_radius=10, border_width=1, border_color="#3a3a3a")
         frame.grid(row=row, column=col, sticky="nsew", padx=8, pady=8)
-        
         ctk.CTkLabel(frame, text=title, font=("Roboto", 14, "bold")).pack(pady=(10, 5))
         ctk.CTkFrame(frame, height=2, fg_color="#555").pack(fill="x", padx=10, pady=(0,5))
-        
         lbl_content = ctk.CTkLabel(frame, text="...", font=FONT_MONO, justify="left")
         lbl_content.pack(expand=True, padx=10, pady=5)
         return lbl_content
 
-    # ================= 3. ABA DETALHES =================
+    # ================= 3. ABA HERÓIS (ATUALIZADA) =================
+    def setup_hero_tab(self):
+        self.tab_heroes.grid_columnconfigure(0, weight=1)
+        self.tab_heroes.grid_columnconfigure(1, weight=3)
+        self.tab_heroes.grid_rowconfigure(0, weight=1)
+
+        # --- LADO ESQUERDO: SELEÇÃO E FILTROS ---
+        self.hero_selection_frame = ctk.CTkFrame(self.tab_heroes, corner_radius=10, width=250)
+        self.hero_selection_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        
+        ctk.CTkLabel(self.hero_selection_frame, text="Selecione o Herói", font=FONT_HEADER).pack(pady=(15, 5))
+        
+        hero_names = sorted(list(HEROES_DATA.keys()))
+        if not hero_names: hero_names = ["(Vazio)"]
+
+        self.combo_hero_analysis = ctk.CTkComboBox(self.hero_selection_frame, 
+                                                   values=hero_names, 
+                                                   command=self.update_hero_variants_analysis, 
+                                                   width=200, font=FONT_NORMAL)
+        self.combo_hero_analysis.pack(pady=5)
+        self.combo_variant_analysis = ctk.CTkComboBox(self.hero_selection_frame, 
+                                                      values=["Base"], 
+                                                      command=lambda x: self.display_hero_insights(), 
+                                                      width=200, font=FONT_NORMAL)
+        self.combo_variant_analysis.pack(pady=(0, 20))
+        
+        # DIVISOR
+        ctk.CTkFrame(self.hero_selection_frame, height=2, fg_color="#444").pack(fill="x", padx=20, pady=10)
+        
+        # FILTRO DE DIFICULDADE
+        ctk.CTkLabel(self.hero_selection_frame, text="Filtro de Dificuldade", font=FONT_HEADER).pack(pady=(10, 5))
+        self.combo_diff_filter = ctk.CTkComboBox(self.hero_selection_frame, 
+                                                 values=["Todos", "Normal", "Advanced", "Challenge", "Ultimate"],
+                                                 command=lambda x: self.display_hero_insights(),
+                                                 width=200, font=FONT_NORMAL)
+        self.combo_diff_filter.set("Todos")
+        self.combo_diff_filter.pack(pady=5)
+        
+        if hero_names and hero_names[0] != "(Vazio)":
+            self.combo_hero_analysis.set(hero_names[0])
+            self.update_hero_variants_analysis(hero_names[0])
+
+        # --- LADO DIREITO: RESUMO E INSIGHTS ---
+        right_panel_container = ctk.CTkFrame(self.tab_heroes, fg_color="transparent")
+        right_panel_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        
+        # HEADLINE STATS (Winrate e Jogos)
+        self.stats_header_frame = ctk.CTkFrame(right_panel_container, corner_radius=10, fg_color="#222")
+        self.stats_header_frame.pack(fill="x", pady=(0, 10))
+        
+        self.lbl_hero_wr = ctk.CTkLabel(self.stats_header_frame, text="WR: --%", font=FONT_BIG_NUMBER, text_color="#2CC985")
+        self.lbl_hero_wr.pack(side="left", padx=30, pady=20)
+        
+        self.lbl_hero_games = ctk.CTkLabel(self.stats_header_frame, text="0 Partidas", font=FONT_MED_NUMBER, text_color="gray")
+        self.lbl_hero_games.pack(side="right", padx=30, pady=20)
+
+        # INSIGHTS SCROLL
+        self.insights_scroll_frame = ctk.CTkScrollableFrame(right_panel_container, corner_radius=10, label_text="Análise Estratégica", label_font=("Roboto", 18, "bold"))
+        self.insights_scroll_frame.pack(fill="both", expand=True)
+        
+        self.insight_labels = []
+        for i in range(5):
+            # Alteração principal aqui: definindo a fonte para os insights
+            lbl = ctk.CTkLabel(self.insights_scroll_frame, text="Aguardando...", 
+                               justify="left", wraplength=500, font=FONT_INSIGHT_CONTENT, 
+                               fg_color="#3a3a3a", corner_radius=8, padx=10, pady=10)
+            lbl.pack(fill="x", pady=10)
+            self.insight_labels.append(lbl)
+
     def setup_stats_tab(self):
         top_bar = ctk.CTkFrame(self.tab_stats, fg_color="transparent", height=50)
         top_bar.pack(fill="x", padx=10, pady=10)
@@ -302,7 +375,7 @@ class TrackerApp(ctk.CTk):
         self.lbl_stats_s = create_col("TAMANHO TIME", 2)
         self.lbl_stats_h = create_col("HERÓIS", 3)
 
-    # ================= LOGICA =================
+    # --- LÓGICA ---
     def toggle_villain_mode(self, mode):
         self.frame_solo.pack_forget()
         self.frame_team.pack_forget()
@@ -314,184 +387,232 @@ class TrackerApp(ctk.CTk):
         self.combo_solo_mode.configure(values=modes)
         self.combo_solo_mode.set("Normal")
 
-    def save_game(self):
-        mode_label = self.seg_gamemode.get()
-        game_type = "SOLO" if mode_label == "Solo" else "TEAM"
-        env = self.combo_env.get()
-        result = self.seg_result.get()
+    def update_hero_variants_analysis(self, hero_name):
+        variants = HEROES_DATA.get(hero_name, ["Base"])
+        self.combo_variant_analysis.configure(values=variants)
+        self.combo_variant_analysis.set("Base")
+        self.display_hero_insights()
 
-        villain_str = ""
-        if game_type == "SOLO":
-            v_name = self.combo_solo_name.get()
-            v_mode = self.combo_solo_mode.get()
-            villain_str = v_name if v_mode == "Normal" else f"{v_name} ({v_mode})"
-        else:
-            team_list = [c.get() for c in self.team_villain_combos if c.get() != "(Nenhum)"]
-            if len(team_list) < 3:
-                messagebox.showwarning("Erro", "Times de vilões precisam de pelo menos 3 vilões!")
-                return
-            if len(team_list) != len(set(team_list)):
-                messagebox.showwarning("Erro", "Vilão duplicado no time!")
-                return
-            villain_str = ",".join(team_list)
+    def display_hero_insights(self):
+        hero_base = self.combo_hero_analysis.get()
+        variant = self.combo_variant_analysis.get()
+        diff_filter = self.combo_diff_filter.get() 
 
-        hero_list = []
-        for sel in self.hero_selectors:
-            val = sel.get_selection()
-            if val: hero_list.append(val)
+        if not hero_base or hero_base == "(Vazio)" or not self.insight_labels: return
+        hero_full = hero_base if variant == "Base" else f"{hero_base} ({variant})"
         
-        if len(hero_list) < 3:
-            messagebox.showwarning("Erro", "Selecione pelo menos 3 heróis!")
-            return
+        stats_data = self.calculate_hero_insights(hero_full, diff_filter)
+        
+        total_games = stats_data[0]
+        win_rate = stats_data[1]
+        insights = stats_data[2:]
 
-        bases = set()
-        for h in hero_list:
-            b = h.split(" (")[0]
-            if b in bases:
-                messagebox.showerror("Regra do Multiverso", f"O herói '{b}' já está na mesa!")
-                return
-            bases.add(b)
+        self.lbl_hero_games.configure(text=f"{total_games} Partidas")
+        self.lbl_hero_wr.configure(text=f"{win_rate:.1f}%", text_color="#2CC985" if win_rate >= 50 else "#d63031")
+
+        titles = ["Vilão Mais Fácil", "Vilão Mais Difícil", "Parceiro Frequente", "Ambiente Frequente", "Consistência (DP)"]
+        for i, (title, content) in enumerate(zip(titles, insights)):
+            # Alteração para formatar o texto usando as novas fontes
+            full_text = f"{title}\n\n{content}" # Coloca o conteúdo em negrito
+            self.insight_labels[i].configure(text=full_text, font=FONT_INSIGHT_TITLE) # Usa a fonte maior
+            # A cor já é definida pelo widget pai (fg_color="#3a3a3a")
+
+    def calculate_hero_insights(self, target_hero, difficulty="Todos"):
+        conn = sqlite3.connect('sentinels_history.db')
+        c = conn.cursor()
+        try:
+            c.execute("SELECT villain, environment, result, heroes, game_type FROM games WHERE heroes LIKE ?", (f'%{target_hero}%',))
+            rows = c.fetchall()
+        except:
+            return [0, 0.0, "Erro ao ler BD. Apague o arquivo .db e reinicie."] * 5
+        finally:
+            conn.close()
+
+        # --- FILTRAGEM POR DIFICULDADE (Python-side) ---
+        filtered_rows = []
+        for r in rows:
+            v_str, env, res, h_str, g_type = r
+            
+            if difficulty == "Todos":
+                filtered_rows.append(r)
+            elif g_type == "SOLO":
+                if difficulty == "Normal":
+                    if not any(x in v_str for x in ["(Advanced)", "(Challenge)", "(Ultimate)"]):
+                        filtered_rows.append(r)
+                else:
+                    if f"({difficulty})" in v_str:
+                        filtered_rows.append(r)
+            else:
+                if difficulty == "Todos":
+                    filtered_rows.append(r)
+        
+        rows = filtered_rows
+        
+        total_games = len(rows)
+        if total_games == 0:
+            return [0, 0.0, "Sem partidas com esse filtro.", "Sem partidas.", "-", "-", "-"]
+
+        total_wins = sum(1 for r in rows if r[2] == "Vitória")
+        win_rate_perc = (total_wins / total_games) * 100
+
+        villain_stats = defaultdict(lambda: [0, 0])
+        teammate_stats = defaultdict(lambda: 0)
+        env_counts = defaultdict(lambda: 0)
+        all_winrates = []
+
+        for v_str, env, res, h_str, g_type in rows:
+            win = 1 if res == "Vitória" else 0
+            v_list = v_str.split(",") if g_type == "TEAM" else [v_str]
+            for v in v_list: villain_stats[v][0] += win; villain_stats[v][1] += 1
+            for h in h_str.split(","):
+                if h != target_hero: teammate_stats[h] += 1
+            env_counts[env] += 1
+            all_winrates.append(win)
+
+        valid_vs = [x for x in villain_stats.items() if x[1][1] >= 1] 
+        if valid_vs:
+            sorted_vs = sorted(valid_vs, key=lambda x: (x[1][0]/x[1][1], x[1][1]), reverse=True)
+            i1 = f"{sorted_vs[0][0]} ({(sorted_vs[0][1][0]/sorted_vs[0][1][1])*100:.0f}%)"
+            i2 = f"{sorted_vs[-1][0]} ({(sorted_vs[-1][1][0]/sorted_vs[-1][1][1])*100:.0f}%)"
+        else: i1 = i2 = "Dados insuficientes."
+
+        i3 = f"{max(teammate_stats.items(), key=lambda x: x[1])[0]}" if teammate_stats else "-"
+        i4 = f"{max(env_counts.items(), key=lambda x: x[1])[0]}" if env_counts else "-"
+        
+        if len(all_winrates) >= 2: 
+            mean = sum(all_winrates)/len(all_winrates)
+            std_dev = math.sqrt(sum([(x-mean)**2 for x in all_winrates])/len(all_winrates))
+            i5 = f"DP: {std_dev:.3f}"
+        else: i5 = "Min 2 jogos."
+
+        return [total_games, win_rate_perc, i1, i2, i3, i4, i5]
+
+    def save_game(self):
+        mode = self.seg_gamemode.get()
+        g_type = "SOLO" if mode == "Solo" else "TEAM"
+        env = self.combo_env.get()
+        res = self.seg_result.get()
+        
+        if g_type == "SOLO":
+            v = self.combo_solo_name.get()
+            m = self.combo_solo_mode.get()
+            v_str = v if m == "Normal" else f"{v} ({m})"
+        else:
+            lst = [c.get() for c in self.team_villain_combos if c.get() != "(Nenhum)"]
+            if len(lst) < 3: return messagebox.showwarning("Erro", "Min 3 vilões.")
+            if len(lst) != len(set(lst)): return messagebox.showwarning("Erro", "Vilão duplicado.")
+            v_str = ",".join(lst)
+
+        h_list = []
+        for s in self.hero_selectors:
+            x = s.get_selection()
+            if x: h_list.append(x)
+        if len(h_list) < 3: return messagebox.showwarning("Erro", "Min 3 heróis.")
+        
+        if len(set([h.split(" (")[0] for h in h_list])) != len(h_list):
+            return messagebox.showerror("Erro", "Herói duplicado.")
 
         try:
             conn = sqlite3.connect('sentinels_history.db')
             c = conn.cursor()
-            date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+            dt = datetime.now().strftime("%Y-%m-%d %H:%M")
             c.execute("INSERT INTO games (date, villain, environment, result, heroes, game_type) VALUES (?, ?, ?, ?, ?, ?)",
-                      (date_str, villain_str, env, result, ",".join(hero_list), game_type))
+                      (dt, v_str, env, res, ",".join(h_list), g_type))
             conn.commit()
             conn.close()
-            messagebox.showinfo("Sucesso", "Partida registrada!")
-            
-            for sel in self.hero_selectors: sel.reset()
+            messagebox.showinfo("Sucesso", "Salvo!")
+            for s in self.hero_selectors: s.reset()
             for c in self.team_villain_combos: c.set("(Nenhum)")
-            
             self.refresh_all_data()
-            
-        except Exception as e:
-            messagebox.showerror("Erro", str(e))
+        except Exception as e: messagebox.showerror("Erro", str(e))
 
     def refresh_all_data(self):
         self.calculate_overview()
         self.calculate_details()
+        self.display_hero_insights()
 
     def calculate_overview(self):
         conn = sqlite3.connect('sentinels_history.db')
         c = conn.cursor()
-        c.execute("SELECT villain, environment, result, heroes, game_type FROM games")
-        rows = c.fetchall()
+        try:
+            c.execute("SELECT villain, environment, result, heroes, game_type FROM games")
+            rows = c.fetchall()
+        except: rows = []
         conn.close()
-
+        
         self.lbl_total_games.configure(text=str(len(rows)))
-
         if not rows: return
-
-        # Contadores Gerais
-        hero_stats = defaultdict(lambda: [0, 0]) # [Wins, Total]
-        villain_stats = defaultdict(lambda: [0, 0])
-        env_stats = defaultdict(lambda: [0, 0])
-
-        for v_str, env, res, h_str, g_type in rows:
-            win = 1 if res == "Vitória" else 0
-            
-            # Heróis
-            for h in h_str.split(","):
-                hero_stats[h][0] += win
-                hero_stats[h][1] += 1
-            
-            # Ambiente
-            env_stats[env][0] += win
-            env_stats[env][1] += 1
-            
-            # Vilões (Separa se for time, mantem junto se for solo)
-            if g_type == "TEAM":
-                for v in v_str.split(","):
-                    villain_stats[v][0] += win
-                    villain_stats[v][1] += 1
-            else:
-                villain_stats[v_str][0] += win
-                villain_stats[v_str][1] += 1
-
-        # Funções de Ordenação
-        def get_top_played(stats, limit=5):
-            # Ordena por Total de Jogos (desc)
-            sorted_items = sorted(stats.items(), key=lambda x: x[1][1], reverse=True)[:limit]
-            return sorted_items
-
-        def get_winrate(stats, reverse=True, limit=5, min_games=3):
-            # Filtra min_games, Calcula %, Ordena por % e depois por Total Jogos
-            valid_items = [x for x in stats.items() if x[1][1] >= min_games]
-            sorted_items = sorted(valid_items, key=lambda x: ((x[1][0]/x[1][1]), x[1][1]), reverse=reverse)[:limit]
-            return sorted_items
-
-        def fmt_list(items, show_wr=False):
-            txt = ""
-            for idx, (name, val) in enumerate(items):
-                if show_wr:
-                    pct = (val[0]/val[1])*100
-                    txt += f"{idx+1}. {name}\n   {pct:.1f}% ({val[0]}/{val[1]})\n"
-                else:
-                    txt += f"{idx+1}. {name} ({val[1]})\n"
-            return txt if txt else "(Poucos dados)"
-
-        # Preenche os cards
-        self.card_hero_played.configure(text=fmt_list(get_top_played(hero_stats)))
-        self.card_hero_best.configure(text=fmt_list(get_winrate(hero_stats, reverse=True), show_wr=True))
-        self.card_hero_worst.configure(text=fmt_list(get_winrate(hero_stats, reverse=False), show_wr=True))
         
-        self.card_villain_played.configure(text=fmt_list(get_top_played(villain_stats)))
-        self.card_villain_hardest.configure(text=fmt_list(get_winrate(villain_stats, reverse=False), show_wr=True)) # Menor winrate = Mais difícil
-        
-        self.card_env_played.configure(text=fmt_list(get_top_played(env_stats)))
+        h_stats = defaultdict(lambda: [0, 0])
+        v_stats = defaultdict(lambda: [0, 0])
+        e_stats = defaultdict(lambda: [0, 0])
 
+        for v_s, e, r, h_s, g_t in rows:
+            w = 1 if r == "Vitória" else 0
+            for h in h_s.split(","): h_stats[h][0]+=w; h_stats[h][1]+=1
+            e_stats[e][0]+=w; e_stats[e][1]+=1
+            v_lst = v_s.split(",") if g_t == "TEAM" else [v_s]
+            for v in v_lst: v_stats[v][0]+=w; v_stats[v][1]+=1
 
-    def calculate_details(self):
-        current_mode_label = self.seg_stats_mode.get()
-        db_type = "SOLO" if current_mode_label == "Stats Solo" else "TEAM"
-
-        conn = sqlite3.connect('sentinels_history.db')
-        c = conn.cursor()
-        c.execute("SELECT villain, environment, result, heroes FROM games WHERE game_type=?", (db_type,))
-        rows = c.fetchall()
-        conn.close()
-
-        if not rows:
-            for lbl in [self.lbl_stats_v, self.lbl_stats_e, self.lbl_stats_s, self.lbl_stats_h]:
-                lbl.configure(text="Sem registros.")
-            return
-
-        stats_v = defaultdict(lambda: [0, 0])
-        stats_e = defaultdict(lambda: [0, 0])
-        stats_h = defaultdict(lambda: [0, 0])
-        stats_s = defaultdict(lambda: [0, 0])
-
-        for v_str, env, res, h_str in rows:
-            win = 1 if res == "Vitória" else 0
-            
-            if db_type == "SOLO":
-                stats_v[v_str][0] += win; stats_v[v_str][1] += 1
-            else:
-                for m in v_str.split(","):
-                    stats_v[m][0] += win; stats_v[m][1] += 1
-
-            stats_e[env][0] += win; stats_e[env][1] += 1
-            h_list = h_str.split(",")
-            for h in h_list:
-                stats_h[h][0] += win; stats_h[h][1] += 1
-            stats_s[len(h_list)][0] += win; stats_s[len(h_list)][1] += 1
-
-        def fmt(d, sort_key=False):
-            items = sorted(d.items(), key=lambda x: x[0] if sort_key else x[1][1], reverse=not sort_key)
+        def fmt(lst, wr=False):
             txt = ""
-            for k, v in items:
-                prefix = f"{k} Heróis" if isinstance(k, int) else k
-                pct = (v[0]/v[1])*100
-                txt += f"{pct:5.1f}%  ({v[0]}/{v[1]})  {prefix}\n" + "─"*30 + "\n"
+            for i, (n, d) in enumerate(lst):
+                if wr: txt += f"{i+1}. {n} ({d[0]/d[1]*100:.0f}%)\n"
+                else: txt += f"{i+1}. {n} ({d[1]})\n"
             return txt
 
-        self.lbl_stats_v.configure(text=fmt(stats_v))
-        self.lbl_stats_e.configure(text=fmt(stats_e))
-        self.lbl_stats_h.configure(text=fmt(stats_h))
-        self.lbl_stats_s.configure(text=fmt(stats_s, True))
+        top_h = sorted(h_stats.items(), key=lambda x: x[1][1], reverse=True)[:5]
+        self.card_hero_played.configure(text=fmt(top_h))
+        
+        valid_h = [x for x in h_stats.items() if x[1][1]>=3]
+        best_h = sorted(valid_h, key=lambda x: (x[1][0]/x[1][1], x[1][1]), reverse=True)[:5]
+        worst_h = sorted(valid_h, key=lambda x: (x[1][0]/x[1][1], x[1][1]))[:5]
+        
+        self.card_hero_best.configure(text=fmt(best_h, True))
+        self.card_hero_worst.configure(text=fmt(worst_h, True))
+
+        top_v = sorted(v_stats.items(), key=lambda x: x[1][1], reverse=True)[:5]
+        self.card_villain_played.configure(text=fmt(top_v))
+
+        valid_v = [x for x in v_stats.items() if x[1][1]>=3]
+        hard_v = sorted(valid_v, key=lambda x: (x[1][0]/x[1][1], x[1][1]))[:5]
+        self.card_villain_hardest.configure(text=fmt(hard_v, True))
+
+        top_e = sorted(e_stats.items(), key=lambda x: x[1][1], reverse=True)[:5]
+        self.card_env_played.configure(text=fmt(top_e))
+
+    def calculate_details(self):
+        mode = "SOLO" if self.seg_stats_mode and self.seg_stats_mode.get() == "Stats Solo" else "TEAM"
+        conn = sqlite3.connect('sentinels_history.db')
+        c = conn.cursor()
+        try:
+            c.execute("SELECT villain, environment, result, heroes FROM games WHERE game_type=?", (mode,))
+            rows = c.fetchall()
+        except: rows = []
+        conn.close()
+        
+        if not rows: 
+            for l in [self.lbl_stats_v, self.lbl_stats_e, self.lbl_stats_s, self.lbl_stats_h]: l.configure(text="-")
+            return
+
+        sv, se, sh, ss = defaultdict(lambda:[0,0]), defaultdict(lambda:[0,0]), defaultdict(lambda:[0,0]), defaultdict(lambda:[0,0])
+        for v, e, r, h in rows:
+            w = 1 if r == "Vitória" else 0
+            se[e][0]+=w; se[e][1]+=1
+            hl = h.split(",")
+            for x in hl: sh[x][0]+=w; sh[x][1]+=1
+            ss[len(hl)][0]+=w; ss[len(hl)][1]+=1
+            vl = v.split(",") if mode=="TEAM" else [v]
+            for x in vl: sv[x][0]+=w; sv[x][1]+=1
+
+        def f(d, sk=False):
+            l = sorted(d.items(), key=lambda x: x[0] if sk else x[1][1], reverse=not sk)
+            t = ""
+            for k, val in l: t+=f"{val[0]/val[1]*100:5.0f}% ({val[0]}/{val[1]}) {k}\n"
+            return t
+        
+        self.lbl_stats_v.configure(text=f(sv)); self.lbl_stats_e.configure(text=f(se))
+        self.lbl_stats_h.configure(text=f(sh)); self.lbl_stats_s.configure(text=f(ss, True))
 
 if __name__ == "__main__":
     try:
@@ -501,5 +622,5 @@ if __name__ == "__main__":
     except Exception as e:
         import tkinter as tk
         from tkinter import messagebox
-        root = tk.Tk(); root.withdraw()
+        r = tk.Tk(); r.withdraw()
         messagebox.showerror("Erro Fatal", str(e))
