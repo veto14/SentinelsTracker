@@ -18,9 +18,9 @@ Tabelas de Detalhes: Geração de rankings tabulares completos por Vilão, Ambie
 
 # Tecnologias Utilizadas
 
-Python
-CustomTkinter (CTK)
-SQLite3
+#### Python
+#### CustomTkinter (CTK)
+#### SQLite3
 
 # Como Executar o Projeto
 
