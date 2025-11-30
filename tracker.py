@@ -5,23 +5,36 @@ from datetime import datetime
 from collections import defaultdict
 import math
 
-# --- CONFIGURAÇÃO VISUAL ---
+# --- 1. SISTEMA DE DESIGN (CONFIGURAÇÕES GLOBAIS) ---
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
 
-# --- FONTES ---
-FONT_BIG_NUMBER = ("Roboto", 40, "bold")
-FONT_MED_NUMBER = ("Roboto", 24, "bold") 
-FONT_HEADER = ("Roboto Medium", 16)
-FONT_CARD_TITLE = ("Roboto", 12, "bold")
-FONT_NORMAL = ("Roboto", 12)
-FONT_MONO = ("Consolas", 12)
-# NOVAS FONTES PARA OS INSIGHTS
-FONT_INSIGHT_TITLE = ("Roboto", 16, "bold")
-FONT_INSIGHT_CONTENT = ("Roboto", 14)
+# Paleta de Cores
+COLORS = {
+    "bg_card": "#2b2b2b",       # Fundo dos cartões
+    "border": "#3a3a3a",        # Borda sutil
+    "accent": "#1f6aa5",        # Azul padrão do tema
+    "success": "#2CC985",       # Verde Vitória
+    "danger": "#d63031",        # Vermelho Derrota/Difícil
+    "highlight": "#4aa3df",     # Ciano para dados em destaque
+    "text_main": "white",       # Texto principal
+    "text_muted": "gray70",     # Texto secundário/labels
+    "separator": "#444444"      # Linhas divisórias
+}
 
+# Tipografia Padronizada
+FONTS = {
+    "h1": ("Roboto", 36, "bold"),       # Grandes números / Títulos principais
+    "h2": ("Roboto", 22, "bold"),       # Subtítulos / Headers de seção
+    "h3": ("Roboto Medium", 16),        # Títulos de formulário
+    "body": ("Roboto", 13),             # Texto comum
+    "body_bold": ("Roboto", 13, "bold"),# Texto comum negrito
+    "mono": ("Consolas", 12),           # Tabelas e dados alinhados
+    "card_label": ("Roboto", 11, "bold"), # "Rótulo" (ex: VILÃO MAIS FÁCIL)
+    "card_value": ("Roboto", 18, "bold")  # Valor do card
+}
 
-# --- DADOS (HEROES_DATA, VILLAINS, ETC - MANTIDOS IGUAIS) ---
+# --- 2. DADOS DO JOGO ---
 HEROES_DATA = {
     "Legacy": ["Base", "America's Greatest", "Young", "Freedom Five"],
     "Bunker": ["Base", "G.I.", "Freedom Five", "Termi-Nation"],
@@ -98,6 +111,7 @@ AMBIENTES = [
 ]
 AMBIENTES.sort()
 
+# --- 3. BANCO DE DADOS ---
 def init_db():
     conn = sqlite3.connect('sentinels_history.db')
     c = conn.cursor()
@@ -116,16 +130,21 @@ def init_db():
     conn.commit()
     conn.close()
 
+# --- 4. COMPONENTES VISUAIS ---
 class HeroSelector(ctk.CTkFrame):
     def __init__(self, master, index, **kwargs):
-        super().__init__(master, corner_radius=10, border_width=1, border_color="#3a3a3a", fg_color="#2b2b2b", **kwargs)
-        self.lbl_idx = ctk.CTkLabel(self, text=f"{index}", font=("Arial", 20, "bold"), text_color="#555555", width=30)
+        super().__init__(master, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"], **kwargs)
+        
+        self.lbl_idx = ctk.CTkLabel(self, text=f"{index}", font=("Arial", 20, "bold"), text_color=COLORS["text_muted"], width=30)
         self.lbl_idx.pack(side="left", padx=(10, 5))
+        
         self.combo_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.combo_frame.pack(side="left", fill="x", expand=True, padx=5, pady=5)
+        
         names = ["(Nenhum)"] + sorted(list(HEROES_DATA.keys()))
-        self.hero_combo = ctk.CTkComboBox(self.combo_frame, values=names, command=self.update_variants, width=180, font=FONT_NORMAL)
+        self.hero_combo = ctk.CTkComboBox(self.combo_frame, values=names, command=self.update_variants, width=180, font=FONTS["body"])
         self.hero_combo.pack(pady=(0, 2))
+        
         self.variant_combo = ctk.CTkComboBox(self.combo_frame, values=["-"], width=180, state="disabled", font=("Arial", 12))
         self.variant_combo.pack(pady=(2, 0))
 
@@ -133,12 +152,12 @@ class HeroSelector(ctk.CTkFrame):
         if choice == "(Nenhum)":
             self.variant_combo.configure(values=["-"], state="disabled")
             self.variant_combo.set("-")
-            self.configure(border_color="#3a3a3a")
+            self.configure(border_color=COLORS["border"])
         else:
             variants = HEROES_DATA.get(choice, ["Base"])
             self.variant_combo.configure(values=variants, state="normal")
             self.variant_combo.set("Base")
-            self.configure(border_color="#1f6aa5")
+            self.configure(border_color=COLORS["accent"]) # Azul quando ativo
 
     def get_selection(self):
         h = self.hero_combo.get()
@@ -153,11 +172,12 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Multiverse Tracker v10.0")
-        self.geometry("1280x800")
+        self.title("Sentinels Tracker 1.0")
+        self.geometry("1280x850")
         
-        # INICIALIZA VARIÁVEIS SEGURAS
+        # Inicialização Segura
         self.insight_labels = [] 
+        self.insight_titles = [] 
         self.seg_stats_mode = None
         self.combo_hero_analysis = None
         self.combo_variant_analysis = None
@@ -165,151 +185,174 @@ class TrackerApp(ctk.CTk):
 
         self.main_container = ctk.CTkTabview(self, corner_radius=15)
         self.main_container.pack(fill="both", expand=True, padx=15, pady=15)
+        
+        # Configuração da fonte das abas
+        self.main_container._segmented_button.configure(font=FONTS["body_bold"])
 
-        self.tab_reg = self.main_container.add("  REGISTRAR  ")
-        self.tab_overview = self.main_container.add("  VISÃO GERAL  ")
-        self.tab_heroes = self.main_container.add("  HERÓIS  ")
-        self.tab_stats = self.main_container.add("  DETALHES  ")
+        self.tab_reg = self.main_container.add("  NOVA PARTIDA  ")
+        self.tab_overview = self.main_container.add("  DASHBOARD  ")
+        self.tab_heroes = self.main_container.add("  ANÁLISE DE HERÓI  ")
+        self.tab_stats = self.main_container.add("  TABELAS  ")
 
         self.setup_register_tab()
         self.setup_overview_tab()
         self.setup_stats_tab()
         self.setup_hero_tab()
         
-        # Garante que roda só depois de tudo pronto
+        # Delay curto para garantir carregamento da UI antes dos dados
         self.after(500, self.refresh_all_data) 
 
-    # --- SETUP TABS ---
+    # --- ABA 1: REGISTRO ---
     def setup_register_tab(self):
-        self.tab_reg.grid_columnconfigure(0, weight=1, uniform="g1")
-        self.tab_reg.grid_columnconfigure(1, weight=1, uniform="g1")
+        self.tab_reg.grid_columnconfigure(0, weight=1, uniform="g1") # Esquerda
+        self.tab_reg.grid_columnconfigure(1, weight=1, uniform="g1") # Direita
         self.tab_reg.grid_rowconfigure(0, weight=1)
 
+        # PAINEL ESQUERDO (Setup)
         self.left_panel = ctk.CTkFrame(self.tab_reg, fg_color="transparent")
         self.left_panel.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
-        self.card_mode = ctk.CTkFrame(self.left_panel, corner_radius=10)
+        # 1. Modo de Jogo
+        self.card_mode = ctk.CTkFrame(self.left_panel, corner_radius=12, fg_color=COLORS["bg_card"])
         self.card_mode.pack(fill="x", pady=(0, 15))
-        ctk.CTkLabel(self.card_mode, text="MODO DE JOGO", font=("Roboto", 14, "bold"), text_color="gray").pack(pady=(10, 5))
+        ctk.CTkLabel(self.card_mode, text="MODO DE JOGO", font=FONTS["card_label"], text_color=COLORS["text_muted"]).pack(pady=(12, 5))
         self.seg_gamemode = ctk.CTkSegmentedButton(self.card_mode, values=["Solo", "Time de Vilões"], 
-                                                   command=self.toggle_villain_mode, font=("Roboto", 14, "bold"), height=35)
+                                                   command=self.toggle_villain_mode, font=FONTS["body_bold"], height=32)
         self.seg_gamemode.set("Solo")
         self.seg_gamemode.pack(pady=(0, 15), padx=20, fill="x")
 
-        self.card_setup = ctk.CTkFrame(self.left_panel, corner_radius=10)
+        # 2. Cenário (Vilão e Ambiente)
+        self.card_setup = ctk.CTkFrame(self.left_panel, corner_radius=12, fg_color=COLORS["bg_card"])
         self.card_setup.pack(fill="x", pady=(0, 15), ipady=10)
         
+        # Vilão Solo
         self.frame_solo = ctk.CTkFrame(self.card_setup, fg_color="transparent")
-        ctk.CTkLabel(self.frame_solo, text="VILÃO", font=("Roboto", 14, "bold")).pack(anchor="w", padx=15)
+        ctk.CTkLabel(self.frame_solo, text="VILÃO", font=FONTS["h3"]).pack(anchor="w", padx=20)
         self.combo_solo_name = ctk.CTkComboBox(self.frame_solo, values=sorted(list(SOLO_VILLAINS_DATA.keys())), 
-                                               command=self.update_solo_modes, width=250, font=FONT_NORMAL)
-        self.combo_solo_name.pack(padx=15, pady=(5, 5), fill="x")
-        self.combo_solo_mode = ctk.CTkComboBox(self.frame_solo, values=["Normal"], width=250, font=FONT_NORMAL)
-        self.combo_solo_mode.pack(padx=15, pady=(0, 10), fill="x")
+                                               command=self.update_solo_modes, width=250, font=FONTS["body"])
+        self.combo_solo_name.pack(padx=20, pady=(5, 5), fill="x")
+        self.combo_solo_mode = ctk.CTkComboBox(self.frame_solo, values=["Normal"], width=250, font=FONTS["body"])
+        self.combo_solo_mode.pack(padx=20, pady=(0, 10), fill="x")
         
+        # Vilão Time
         self.frame_team = ctk.CTkFrame(self.card_setup, fg_color="transparent")
-        ctk.CTkLabel(self.frame_team, text="TIME DE VILÕES", font=("Roboto", 14, "bold")).pack(anchor="w", padx=15)
+        ctk.CTkLabel(self.frame_team, text="TIME DE VILÕES (3-5)", font=FONTS["h3"]).pack(anchor="w", padx=20)
         self.team_villain_combos = []
         for i in range(5):
-            c = ctk.CTkComboBox(self.frame_team, values=["(Nenhum)"] + TEAM_VILLAINS_LIST, height=28)
-            c.pack(padx=15, pady=2, fill="x")
+            c = ctk.CTkComboBox(self.frame_team, values=["(Nenhum)"] + TEAM_VILLAINS_LIST, height=28, font=FONTS["body"])
+            c.pack(padx=20, pady=2, fill="x")
             self.team_villain_combos.append(c)
+        
+        # Inicia com Solo
         self.frame_solo.pack(fill="x")
         self.update_solo_modes(self.combo_solo_name.get())
 
-        ctk.CTkFrame(self.card_setup, height=2, fg_color="#3a3a3a").pack(fill="x", padx=15, pady=15)
+        # Separador
+        ctk.CTkFrame(self.card_setup, height=1, fg_color=COLORS["separator"]).pack(fill="x", padx=20, pady=15)
 
-        ctk.CTkLabel(self.card_setup, text="AMBIENTE", font=("Roboto", 14, "bold")).pack(anchor="w", padx=15)
-        self.combo_env = ctk.CTkComboBox(self.card_setup, values=AMBIENTES, font=FONT_NORMAL)
-        self.combo_env.pack(padx=15, pady=5, fill="x")
+        # Ambiente
+        ctk.CTkLabel(self.card_setup, text="AMBIENTE", font=FONTS["h3"]).pack(anchor="w", padx=20)
+        self.combo_env = ctk.CTkComboBox(self.card_setup, values=AMBIENTES, font=FONTS["body"])
+        self.combo_env.pack(padx=20, pady=5, fill="x")
 
-        self.card_result = ctk.CTkFrame(self.left_panel, corner_radius=10)
+        # 3. Resultado
+        self.card_result = ctk.CTkFrame(self.left_panel, corner_radius=12, fg_color=COLORS["bg_card"])
         self.card_result.pack(fill="x", pady=(0, 15))
-        ctk.CTkLabel(self.card_result, text="RESULTADO", font=("Roboto", 14, "bold"), text_color="gray").pack(pady=(10, 5))
+        ctk.CTkLabel(self.card_result, text="RESULTADO DA BATALHA", font=FONTS["card_label"], text_color=COLORS["text_muted"]).pack(pady=(12, 5))
         self.seg_result = ctk.CTkSegmentedButton(self.card_result, values=["Vitória", "Derrota"], 
-                                                 selected_color="#2CC985", selected_hover_color="#209662",
-                                                 font=("Roboto", 14, "bold"), height=40)
+                                                 selected_color=COLORS["success"], selected_hover_color="#209662",
+                                                 font=FONTS["body_bold"], height=40)
         self.seg_result.set("Vitória")
         self.seg_result.pack(pady=(0, 20), padx=20, fill="x")
 
-        self.btn_save = ctk.CTkButton(self.left_panel, text="REGISTRAR PARTIDA", command=self.save_game, 
-                                      fg_color="#1f6aa5", hover_color="#144870", height=60, font=("Roboto", 18, "bold"), corner_radius=10)
+        # Botão Salvar (Grande)
+        self.btn_save = ctk.CTkButton(self.left_panel, text="SALVAR DADOS DA PARTIDA", command=self.save_game, 
+                                      fg_color=COLORS["accent"], hover_color="#144870", 
+                                      height=55, font=("Roboto", 15, "bold"), corner_radius=12)
         self.btn_save.pack(side="bottom", fill="x", pady=10)
 
-        self.right_panel = ctk.CTkFrame(self.tab_reg, corner_radius=10)
+        # PAINEL DIREITO (Heróis)
+        self.right_panel = ctk.CTkFrame(self.tab_reg, corner_radius=12, fg_color="transparent") # Fundo transp para parecer solto
         self.right_panel.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-        ctk.CTkLabel(self.right_panel, text="EQUIPE DE HERÓIS", font=FONT_HEADER).pack(pady=15)
+        
+        ctk.CTkLabel(self.right_panel, text="EQUIPE DE HERÓIS", font=FONTS["h2"]).pack(pady=(0, 15), anchor="w")
+        
         self.hero_selectors = []
         for i in range(5):
             sel = HeroSelector(self.right_panel, index=i+1)
-            sel.pack(padx=15, pady=6, fill="x")
+            sel.pack(padx=0, pady=6, fill="x")
             self.hero_selectors.append(sel)
 
+    # --- ABA 2: DASHBOARD (Overview) ---
     def setup_overview_tab(self):
+        # Cabeçalho
         self.frame_total = ctk.CTkFrame(self.tab_overview, fg_color="transparent")
-        self.frame_total.pack(fill="x", pady=20)
-        ctk.CTkLabel(self.frame_total, text="TOTAL DE PARTIDAS", font=("Roboto", 16, "bold"), text_color="gray").pack()
-        self.lbl_total_games = ctk.CTkLabel(self.frame_total, text="0", font=FONT_BIG_NUMBER, text_color="#2CC985")
-        self.lbl_total_games.pack()
-        ctk.CTkButton(self.frame_total, text="Atualizar Dados", command=self.refresh_all_data, 
-                      height=25, width=100, fg_color="#333").pack(pady=5)
+        self.frame_total.pack(fill="x", pady=20, padx=20)
+        
+        # Botão atualizar (Pequeno no canto)
+        ctk.CTkButton(self.frame_total, text="⟳ Atualizar", command=self.refresh_all_data, 
+                      height=28, width=80, fg_color="#333", font=FONTS["body"]).pack(side="right", anchor="n")
 
+        # KPI Principal
+        ctk.CTkLabel(self.frame_total, text="TOTAL DE PARTIDAS", font=FONTS["card_label"], text_color=COLORS["text_muted"]).pack()
+        self.lbl_total_games = ctk.CTkLabel(self.frame_total, text="0", font=FONTS["h1"], text_color=COLORS["success"])
+        self.lbl_total_games.pack()
+
+        # Grid
         self.grid_overview = ctk.CTkFrame(self.tab_overview, fg_color="transparent")
         self.grid_overview.pack(fill="both", expand=True, padx=10, pady=10)
         for i in range(3): self.grid_overview.grid_columnconfigure(i, weight=1)
         for i in range(2): self.grid_overview.grid_rowconfigure(i, weight=1)
 
-        self.card_hero_played = self.create_stat_card(0, 0, "Heróis Mais Jogados")
-        self.card_hero_best = self.create_stat_card(0, 1, "Melhores Heróis (Winrate)", color="#1a4d1a")
-        self.card_hero_worst = self.create_stat_card(0, 2, "Piores Heróis (Winrate)", color="#4d1a1a")
-        self.card_villain_played = self.create_stat_card(1, 0, "Vilões Favoritos")
-        self.card_villain_hardest = self.create_stat_card(1, 1, "Vilões Mais Difíceis", color="#4d1a1a")
-        self.card_env_played = self.create_stat_card(1, 2, "Ambientes Mais Jogados")
+        self.card_hero_played = self.create_stat_card(0, 0, "HERÓIS MAIS JOGADOS")
+        self.card_hero_best = self.create_stat_card(0, 1, "MELHORES HERÓIS (WINRATE)", text_color=COLORS["success"])
+        self.card_hero_worst = self.create_stat_card(0, 2, "PIORES HERÓIS (WINRATE)", text_color=COLORS["danger"])
+        self.card_villain_played = self.create_stat_card(1, 0, "VILÕES MAIS COMUNS")
+        self.card_villain_hardest = self.create_stat_card(1, 1, "VILÕES MAIS DIFÍCEIS", text_color=COLORS["danger"])
+        self.card_env_played = self.create_stat_card(1, 2, "AMBIENTES MAIS JOGADOS")
 
-    def create_stat_card(self, row, col, title, color="#2b2b2b"):
-        frame = ctk.CTkFrame(self.grid_overview, fg_color=color, corner_radius=10, border_width=1, border_color="#3a3a3a")
-        frame.grid(row=row, column=col, sticky="nsew", padx=8, pady=8)
-        ctk.CTkLabel(frame, text=title, font=("Roboto", 14, "bold")).pack(pady=(10, 5))
-        ctk.CTkFrame(frame, height=2, fg_color="#555").pack(fill="x", padx=10, pady=(0,5))
-        lbl_content = ctk.CTkLabel(frame, text="...", font=FONT_MONO, justify="left")
+    def create_stat_card(self, row, col, title, text_color=None):
+        frame = ctk.CTkFrame(self.grid_overview, fg_color=COLORS["bg_card"], corner_radius=12, border_width=1, border_color=COLORS["border"])
+        frame.grid(row=row, column=col, sticky="nsew", padx=10, pady=10)
+        
+        # Título
+        ctk.CTkLabel(frame, text=title, font=FONTS["card_label"], text_color=COLORS["text_muted"]).pack(pady=(15, 5))
+        ctk.CTkFrame(frame, height=1, fg_color=COLORS["separator"]).pack(fill="x", padx=20, pady=(0, 10))
+        
+        # Conteúdo
+        lbl_content = ctk.CTkLabel(frame, text="...", font=FONTS["mono"], justify="left", text_color=text_color if text_color else "white")
         lbl_content.pack(expand=True, padx=10, pady=5)
         return lbl_content
 
-    # ================= 3. ABA HERÓIS (ATUALIZADA) =================
+    # --- ABA 3: HERÓIS (UX Polida) ---
     def setup_hero_tab(self):
         self.tab_heroes.grid_columnconfigure(0, weight=1)
         self.tab_heroes.grid_columnconfigure(1, weight=3)
         self.tab_heroes.grid_rowconfigure(0, weight=1)
 
-        # --- LADO ESQUERDO: SELEÇÃO E FILTROS ---
-        self.hero_selection_frame = ctk.CTkFrame(self.tab_heroes, corner_radius=10, width=250)
-        self.hero_selection_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        # ESQUERDA: Controles
+        self.hero_selection_frame = ctk.CTkFrame(self.tab_heroes, corner_radius=12, fg_color=COLORS["bg_card"], border_width=1, border_color=COLORS["border"])
+        self.hero_selection_frame.grid(row=0, column=0, sticky="nsew", padx=15, pady=15)
         
-        ctk.CTkLabel(self.hero_selection_frame, text="Selecione o Herói", font=FONT_HEADER).pack(pady=(15, 5))
+        ctk.CTkLabel(self.hero_selection_frame, text="SELEÇÃO", font=FONTS["card_label"], text_color=COLORS["text_muted"]).pack(pady=(20, 10))
         
         hero_names = sorted(list(HEROES_DATA.keys()))
         if not hero_names: hero_names = ["(Vazio)"]
 
-        self.combo_hero_analysis = ctk.CTkComboBox(self.hero_selection_frame, 
-                                                   values=hero_names, 
-                                                   command=self.update_hero_variants_analysis, 
-                                                   width=200, font=FONT_NORMAL)
+        self.combo_hero_analysis = ctk.CTkComboBox(self.hero_selection_frame, values=hero_names, 
+                                                   command=self.update_hero_variants_analysis, width=220, font=FONTS["body"])
         self.combo_hero_analysis.pack(pady=5)
-        self.combo_variant_analysis = ctk.CTkComboBox(self.hero_selection_frame, 
-                                                      values=["Base"], 
-                                                      command=lambda x: self.display_hero_insights(), 
-                                                      width=200, font=FONT_NORMAL)
-        self.combo_variant_analysis.pack(pady=(0, 20))
         
-        # DIVISOR
-        ctk.CTkFrame(self.hero_selection_frame, height=2, fg_color="#444").pack(fill="x", padx=20, pady=10)
+        self.combo_variant_analysis = ctk.CTkComboBox(self.hero_selection_frame, values=["Base"], 
+                                                      command=lambda x: self.display_hero_insights(), width=220, font=FONTS["body"])
+        self.combo_variant_analysis.pack(pady=(5, 20))
         
-        # FILTRO DE DIFICULDADE
-        ctk.CTkLabel(self.hero_selection_frame, text="Filtro de Dificuldade", font=FONT_HEADER).pack(pady=(10, 5))
+        ctk.CTkFrame(self.hero_selection_frame, height=1, fg_color=COLORS["separator"]).pack(fill="x", padx=30, pady=10)
+        
+        ctk.CTkLabel(self.hero_selection_frame, text="FILTRAR DIFICULDADE", font=FONTS["card_label"], text_color=COLORS["text_muted"]).pack(pady=(10, 5))
         self.combo_diff_filter = ctk.CTkComboBox(self.hero_selection_frame, 
                                                  values=["Todos", "Normal", "Advanced", "Challenge", "Ultimate"],
-                                                 command=lambda x: self.display_hero_insights(),
-                                                 width=200, font=FONT_NORMAL)
+                                                 command=lambda x: self.display_hero_insights(), width=220, font=FONTS["body"])
         self.combo_diff_filter.set("Todos")
         self.combo_diff_filter.pack(pady=5)
         
@@ -317,38 +360,51 @@ class TrackerApp(ctk.CTk):
             self.combo_hero_analysis.set(hero_names[0])
             self.update_hero_variants_analysis(hero_names[0])
 
-        # --- LADO DIREITO: RESUMO E INSIGHTS ---
-        right_panel_container = ctk.CTkFrame(self.tab_heroes, fg_color="transparent")
-        right_panel_container.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        # DIREITA: Resultados
+        right_container = ctk.CTkFrame(self.tab_heroes, fg_color="transparent")
+        right_container.grid(row=0, column=1, sticky="nsew", padx=(0, 15), pady=15)
         
-        # HEADLINE STATS (Winrate e Jogos)
-        self.stats_header_frame = ctk.CTkFrame(right_panel_container, corner_radius=10, fg_color="#222")
-        self.stats_header_frame.pack(fill="x", pady=(0, 10))
+        # Banner de Stats
+        self.stats_header_frame = ctk.CTkFrame(right_container, corner_radius=12, fg_color=COLORS["bg_card"], border_width=1, border_color=COLORS["border"])
+        self.stats_header_frame.pack(fill="x", pady=(0, 15))
         
-        self.lbl_hero_wr = ctk.CTkLabel(self.stats_header_frame, text="WR: --%", font=FONT_BIG_NUMBER, text_color="#2CC985")
-        self.lbl_hero_wr.pack(side="left", padx=30, pady=20)
+        self.lbl_hero_wr = ctk.CTkLabel(self.stats_header_frame, text="WR: --%", font=FONTS["h1"], text_color=COLORS["success"])
+        self.lbl_hero_wr.pack(side="left", padx=40, pady=25)
         
-        self.lbl_hero_games = ctk.CTkLabel(self.stats_header_frame, text="0 Partidas", font=FONT_MED_NUMBER, text_color="gray")
-        self.lbl_hero_games.pack(side="right", padx=30, pady=20)
+        self.lbl_hero_games = ctk.CTkLabel(self.stats_header_frame, text="0 Partidas", font=FONTS["h2"], text_color=COLORS["text_muted"])
+        self.lbl_hero_games.pack(side="right", padx=40, pady=25)
 
-        # INSIGHTS SCROLL
-        self.insights_scroll_frame = ctk.CTkScrollableFrame(right_panel_container, corner_radius=10, label_text="Análise Estratégica", label_font=("Roboto", 18, "bold"))
+        # Scroll de Insights
+        self.insights_scroll_frame = ctk.CTkScrollableFrame(right_container, corner_radius=12, fg_color="transparent", label_text="ANÁLISE ESTRATÉGICA", label_font=FONTS["h3"])
         self.insights_scroll_frame.pack(fill="both", expand=True)
         
-        self.insight_labels = []
-        for i in range(5):
-            # Alteração principal aqui: definindo a fonte para os insights
-            lbl = ctk.CTkLabel(self.insights_scroll_frame, text="Aguardando...", 
-                               justify="left", wraplength=500, font=FONT_INSIGHT_CONTENT, 
-                               fg_color="#3a3a3a", corner_radius=8, padx=10, pady=10)
-            lbl.pack(fill="x", pady=10)
-            self.insight_labels.append(lbl)
+        self.insight_titles = [] 
+        self.insight_labels = [] 
 
+        for i in range(5):
+            card_frame = ctk.CTkFrame(self.insights_scroll_frame, fg_color=COLORS["bg_card"], corner_radius=12, border_width=1, border_color=COLORS["border"])
+            card_frame.pack(fill="x", pady=8, padx=5)
+
+            # Título do Card
+            lbl_title = ctk.CTkLabel(card_frame, text="TÍTULO", justify="center", font=FONTS["card_label"], text_color=COLORS["text_muted"])
+            lbl_title.pack(fill="x", padx=10, pady=(15, 5))
+            self.insight_titles.append(lbl_title)
+
+            # Separador
+            ctk.CTkFrame(card_frame, height=1, fg_color=COLORS["separator"]).pack(fill="x", padx=50)
+
+            # Valor
+            lbl_content = ctk.CTkLabel(card_frame, text="...", justify="center", font=FONTS["card_value"], text_color=COLORS["highlight"])
+            lbl_content.pack(fill="x", padx=10, pady=(10, 20))
+            self.insight_labels.append(lbl_content)
+
+    # --- ABA 4: DETALHES (Tabelas) ---
     def setup_stats_tab(self):
         top_bar = ctk.CTkFrame(self.tab_stats, fg_color="transparent", height=50)
-        top_bar.pack(fill="x", padx=10, pady=10)
+        top_bar.pack(fill="x", padx=15, pady=15)
+        
         self.seg_stats_mode = ctk.CTkSegmentedButton(top_bar, values=["Stats Solo", "Stats Time"], 
-                                                     command=lambda x: self.calculate_details(), width=300)
+                                                     command=lambda x: self.calculate_details(), width=300, font=FONTS["body_bold"])
         self.seg_stats_mode.set("Stats Solo")
         self.seg_stats_mode.pack(side="left")
 
@@ -359,23 +415,26 @@ class TrackerApp(ctk.CTk):
             self.stats_grid.grid_rowconfigure(0, weight=1)
 
         def create_col(title, col_idx):
-            frame = ctk.CTkFrame(self.stats_grid, corner_radius=10)
+            frame = ctk.CTkFrame(self.stats_grid, corner_radius=12, fg_color=COLORS["bg_card"], border_width=1, border_color=COLORS["border"])
             frame.grid(row=0, column=col_idx, sticky="nsew", padx=5)
-            header = ctk.CTkFrame(frame, height=40, corner_radius=10, fg_color="#202020")
+            
+            header = ctk.CTkFrame(frame, height=40, corner_radius=12, fg_color="#222")
             header.pack(fill="x", padx=2, pady=2)
-            ctk.CTkLabel(header, text=title, font=("Roboto", 14, "bold")).pack(pady=8)
+            ctk.CTkLabel(header, text=title, font=FONTS["card_label"], text_color=COLORS["text_muted"]).pack(pady=10)
+            
             scroll = ctk.CTkScrollableFrame(frame, fg_color="transparent")
             scroll.pack(fill="both", expand=True, padx=5, pady=5)
-            lbl = ctk.CTkLabel(scroll, text="...", justify="left", font=FONT_MONO)
+            
+            lbl = ctk.CTkLabel(scroll, text="...", justify="left", font=FONTS["mono"])
             lbl.pack(anchor="w")
             return lbl
 
         self.lbl_stats_v = create_col("VILÕES", 0)
         self.lbl_stats_e = create_col("AMBIENTES", 1)
-        self.lbl_stats_s = create_col("TAMANHO TIME", 2)
+        self.lbl_stats_s = create_col("TAMANHO DO TIME", 2)
         self.lbl_stats_h = create_col("HERÓIS", 3)
 
-    # --- LÓGICA ---
+    # --- LÓGICA DE DADOS ---
     def toggle_villain_mode(self, mode):
         self.frame_solo.pack_forget()
         self.frame_team.pack_forget()
@@ -402,20 +461,15 @@ class TrackerApp(ctk.CTk):
         hero_full = hero_base if variant == "Base" else f"{hero_base} ({variant})"
         
         stats_data = self.calculate_hero_insights(hero_full, diff_filter)
-        
-        total_games = stats_data[0]
-        win_rate = stats_data[1]
-        insights = stats_data[2:]
+        total_games, win_rate, *insights = stats_data
 
-        self.lbl_hero_games.configure(text=f"{total_games} Partidas")
-        self.lbl_hero_wr.configure(text=f"{win_rate:.1f}%", text_color="#2CC985" if win_rate >= 50 else "#d63031")
+        self.lbl_hero_games.configure(text=f"{total_games} PARTIDAS")
+        self.lbl_hero_wr.configure(text=f"{win_rate:.1f}%", text_color=COLORS["success"] if win_rate >= 50 else COLORS["danger"])
 
-        titles = ["Vilão Mais Fácil", "Vilão Mais Difícil", "Parceiro Frequente", "Ambiente Frequente", "Consistência (DP)"]
+        titles = ["VILÃO MAIS FÁCIL", "VILÃO MAIS DIFÍCIL", "PARCEIRO FREQUENTE", "AMBIENTE FREQUENTE", "CONSISTÊNCIA (DP)"]
         for i, (title, content) in enumerate(zip(titles, insights)):
-            # Alteração para formatar o texto usando as novas fontes
-            full_text = f"{title}\n\n{content}" # Coloca o conteúdo em negrito
-            self.insight_labels[i].configure(text=full_text, font=FONT_INSIGHT_TITLE) # Usa a fonte maior
-            # A cor já é definida pelo widget pai (fg_color="#3a3a3a")
+            self.insight_titles[i].configure(text=title)
+            self.insight_labels[i].configure(text=content)
 
     def calculate_hero_insights(self, target_hero, difficulty="Todos"):
         conn = sqlite3.connect('sentinels_history.db')
@@ -423,67 +477,55 @@ class TrackerApp(ctk.CTk):
         try:
             c.execute("SELECT villain, environment, result, heroes, game_type FROM games WHERE heroes LIKE ?", (f'%{target_hero}%',))
             rows = c.fetchall()
-        except:
-            return [0, 0.0, "Erro ao ler BD. Apague o arquivo .db e reinicie."] * 5
-        finally:
-            conn.close()
+        except: return [0, 0.0] + ["Erro BD"] * 5
+        finally: conn.close()
 
-        # --- FILTRAGEM POR DIFICULDADE (Python-side) ---
         filtered_rows = []
         for r in rows:
-            v_str, env, res, h_str, g_type = r
-            
-            if difficulty == "Todos":
-                filtered_rows.append(r)
+            v_str, _, _, _, g_type = r
+            if difficulty == "Todos": filtered_rows.append(r)
             elif g_type == "SOLO":
-                if difficulty == "Normal":
-                    if not any(x in v_str for x in ["(Advanced)", "(Challenge)", "(Ultimate)"]):
-                        filtered_rows.append(r)
-                else:
-                    if f"({difficulty})" in v_str:
-                        filtered_rows.append(r)
+                is_normal = not any(x in v_str for x in ["(Advanced)", "(Challenge)", "(Ultimate)"])
+                if difficulty == "Normal" and is_normal: filtered_rows.append(r)
+                elif f"({difficulty})" in v_str: filtered_rows.append(r)
             else:
-                if difficulty == "Todos":
-                    filtered_rows.append(r)
+                if difficulty == "Todos": filtered_rows.append(r)
         
         rows = filtered_rows
-        
         total_games = len(rows)
-        if total_games == 0:
-            return [0, 0.0, "Sem partidas com esse filtro.", "Sem partidas.", "-", "-", "-"]
+        if total_games == 0: return [0, 0.0, "Sem dados.", "Sem dados.", "-", "-", "-"]
 
         total_wins = sum(1 for r in rows if r[2] == "Vitória")
         win_rate_perc = (total_wins / total_games) * 100
 
-        villain_stats = defaultdict(lambda: [0, 0])
-        teammate_stats = defaultdict(lambda: 0)
-        env_counts = defaultdict(lambda: 0)
-        all_winrates = []
+        v_stats, t_stats, e_stats = defaultdict(lambda: [0, 0]), defaultdict(int), defaultdict(int)
+        wins_list = []
 
         for v_str, env, res, h_str, g_type in rows:
             win = 1 if res == "Vitória" else 0
+            wins_list.append(win)
+            e_stats[env] += 1
             v_list = v_str.split(",") if g_type == "TEAM" else [v_str]
-            for v in v_list: villain_stats[v][0] += win; villain_stats[v][1] += 1
+            for v in v_list: v_stats[v][0] += win; v_stats[v][1] += 1
             for h in h_str.split(","):
-                if h != target_hero: teammate_stats[h] += 1
-            env_counts[env] += 1
-            all_winrates.append(win)
+                if h != target_hero: t_stats[h] += 1
 
-        valid_vs = [x for x in villain_stats.items() if x[1][1] >= 1] 
+        # Process Insights
+        valid_vs = [x for x in v_stats.items() if x[1][1] >= 1]
         if valid_vs:
             sorted_vs = sorted(valid_vs, key=lambda x: (x[1][0]/x[1][1], x[1][1]), reverse=True)
-            i1 = f"{sorted_vs[0][0]} ({(sorted_vs[0][1][0]/sorted_vs[0][1][1])*100:.0f}%)"
-            i2 = f"{sorted_vs[-1][0]} ({(sorted_vs[-1][1][0]/sorted_vs[-1][1][1])*100:.0f}%)"
-        else: i1 = i2 = "Dados insuficientes."
+            i1 = f"{sorted_vs[0][0]} ({sorted_vs[0][1][0]/sorted_vs[0][1][1]*100:.0f}%)"
+            i2 = f"{sorted_vs[-1][0]} ({sorted_vs[-1][1][0]/sorted_vs[-1][1][1]*100:.0f}%)"
+        else: i1 = i2 = "Jogue mais."
 
-        i3 = f"{max(teammate_stats.items(), key=lambda x: x[1])[0]}" if teammate_stats else "-"
-        i4 = f"{max(env_counts.items(), key=lambda x: x[1])[0]}" if env_counts else "-"
+        i3 = max(t_stats.items(), key=lambda x: x[1])[0] if t_stats else "-"
+        i4 = max(e_stats.items(), key=lambda x: x[1])[0] if e_stats else "-"
         
-        if len(all_winrates) >= 2: 
-            mean = sum(all_winrates)/len(all_winrates)
-            std_dev = math.sqrt(sum([(x-mean)**2 for x in all_winrates])/len(all_winrates))
-            i5 = f"DP: {std_dev:.3f}"
-        else: i5 = "Min 2 jogos."
+        if len(wins_list) >= 2:
+            mean = sum(wins_list)/len(wins_list)
+            std_dev = math.sqrt(sum([(x-mean)**2 for x in wins_list])/len(wins_list))
+            i5 = f"DP: {std_dev:.2f}"
+        else: i5 = "Min 2 jogos"
 
         return [total_games, win_rate_perc, i1, i2, i3, i4, i5]
 
@@ -499,18 +541,17 @@ class TrackerApp(ctk.CTk):
             v_str = v if m == "Normal" else f"{v} ({m})"
         else:
             lst = [c.get() for c in self.team_villain_combos if c.get() != "(Nenhum)"]
-            if len(lst) < 3: return messagebox.showwarning("Erro", "Min 3 vilões.")
-            if len(lst) != len(set(lst)): return messagebox.showwarning("Erro", "Vilão duplicado.")
+            if len(lst) < 3: return messagebox.showwarning("Atenção", "Selecione pelo menos 3 vilões.")
+            if len(lst) != len(set(lst)): return messagebox.showwarning("Atenção", "Vilões duplicados não permitidos.")
             v_str = ",".join(lst)
 
         h_list = []
         for s in self.hero_selectors:
             x = s.get_selection()
             if x: h_list.append(x)
-        if len(h_list) < 3: return messagebox.showwarning("Erro", "Min 3 heróis.")
-        
+        if len(h_list) < 3: return messagebox.showwarning("Atenção", "Selecione pelo menos 3 heróis.")
         if len(set([h.split(" (")[0] for h in h_list])) != len(h_list):
-            return messagebox.showerror("Erro", "Herói duplicado.")
+            return messagebox.showerror("Regra do Multiverso", "Você não pode ter o mesmo herói duas vezes na mesa.")
 
         try:
             conn = sqlite3.connect('sentinels_history.db')
@@ -520,11 +561,15 @@ class TrackerApp(ctk.CTk):
                       (dt, v_str, env, res, ",".join(h_list), g_type))
             conn.commit()
             conn.close()
-            messagebox.showinfo("Sucesso", "Salvo!")
+            
+            messagebox.showinfo("Sucesso", "Partida registrada com sucesso!")
+            
+            # Reset UI
             for s in self.hero_selectors: s.reset()
             for c in self.team_villain_combos: c.set("(Nenhum)")
             self.refresh_all_data()
-        except Exception as e: messagebox.showerror("Erro", str(e))
+            
+        except Exception as e: messagebox.showerror("Erro Crítico", str(e))
 
     def refresh_all_data(self):
         self.calculate_overview()
@@ -543,9 +588,7 @@ class TrackerApp(ctk.CTk):
         self.lbl_total_games.configure(text=str(len(rows)))
         if not rows: return
         
-        h_stats = defaultdict(lambda: [0, 0])
-        v_stats = defaultdict(lambda: [0, 0])
-        e_stats = defaultdict(lambda: [0, 0])
+        h_stats, v_stats, e_stats = defaultdict(lambda: [0, 0]), defaultdict(lambda: [0, 0]), defaultdict(lambda: [0, 0])
 
         for v_s, e, r, h_s, g_t in rows:
             w = 1 if r == "Vitória" else 0
@@ -557,8 +600,8 @@ class TrackerApp(ctk.CTk):
         def fmt(lst, wr=False):
             txt = ""
             for i, (n, d) in enumerate(lst):
-                if wr: txt += f"{i+1}. {n} ({d[0]/d[1]*100:.0f}%)\n"
-                else: txt += f"{i+1}. {n} ({d[1]})\n"
+                if wr: txt += f"{i+1}. {n:<20} {d[0]/d[1]*100:>3.0f}%\n"
+                else: txt += f"{i+1}. {n:<20} ({d[1]})\n"
             return txt
 
         top_h = sorted(h_stats.items(), key=lambda x: x[1][1], reverse=True)[:5]
@@ -567,7 +610,6 @@ class TrackerApp(ctk.CTk):
         valid_h = [x for x in h_stats.items() if x[1][1]>=3]
         best_h = sorted(valid_h, key=lambda x: (x[1][0]/x[1][1], x[1][1]), reverse=True)[:5]
         worst_h = sorted(valid_h, key=lambda x: (x[1][0]/x[1][1], x[1][1]))[:5]
-        
         self.card_hero_best.configure(text=fmt(best_h, True))
         self.card_hero_worst.configure(text=fmt(worst_h, True))
 
@@ -608,7 +650,9 @@ class TrackerApp(ctk.CTk):
         def f(d, sk=False):
             l = sorted(d.items(), key=lambda x: x[0] if sk else x[1][1], reverse=not sk)
             t = ""
-            for k, val in l: t+=f"{val[0]/val[1]*100:5.0f}% ({val[0]}/{val[1]}) {k}\n"
+            for k, val in l: 
+                pct = val[0]/val[1]*100
+                t+=f"{pct:5.0f}%  ({val[0]}/{val[1]})  {k}\n"
             return t
         
         self.lbl_stats_v.configure(text=f(sv)); self.lbl_stats_e.configure(text=f(se))
