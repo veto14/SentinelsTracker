@@ -50,7 +50,7 @@ HEROES_DATA = {
     "Captain Cosmic": ["Base", "Prime Wardens", "Requital", "XTREME Prime Wardens"],
     "Expatriette": ["Base", "Dark Watch"],
     "Setback": ["Base", "Dark Watch"],
-    "NightMist": ["Base", "Dark Watch"],
+    "Nightmist": ["Base", "Dark Watch"],
     "Mr. Fixer": ["Base", "Dark Watch"],
     "Harpy": ["Base", "Dark Watch"],
     "Ra": ["Base", "Setting Sun", "Horus"],
