@@ -27,7 +27,7 @@ COLORS = {
 FONTS = {
     "h1": ("Roboto", 36, "bold"),       "h2": ("Roboto", 22, "bold"),
     "h3": ("Roboto Medium", 16),        "body": ("Roboto", 13),
-    "body_bold": ("Roboto", 13, "bold"),"mono": ("Roboto Medium", 11),
+    "body_bold": ("Roboto", 13, "bold"),"mono": ("Consolas", 13),
     "card_label": ("Roboto", 11, "bold"), "card_value": ("Roboto", 18, "bold"),
     "stat_big": ("Roboto", 28, "bold"), "dashboard_row": ("Roboto Medium", 13)
 }
@@ -296,7 +296,7 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.2.1")
+        self.title("Sentinels Tracker v1.2.2")
         self.geometry("1300x850")
         
         # Estado e Refs
@@ -312,7 +312,8 @@ class TrackerApp(ctk.CTk):
         self.dash_cards_frames = {} 
         self.global_stat_labels = {} 
         self.agg_lists_frames = {} 
-        self.achievements_frame = None 
+        self.lbl_achieve_name = None
+        self.achievements_container = None 
 
         self.main_container = ctk.CTkTabview(self, corner_radius=15)
         self.main_container.pack(fill="both", expand=True, padx=15, pady=15)
@@ -425,9 +426,13 @@ class TrackerApp(ctk.CTk):
         self.tab_hero_internal = ctk.CTkTabview(self.tab_heroes)
         self.tab_hero_internal.pack(fill="both", expand=True, padx=10, pady=10)
         self.subtab_analysis = self.tab_hero_internal.add(" Análise Específica ")
-        self.subtab_summary = self.tab_hero_internal.add(" Resumo do Herói (Base+Vars) ")
+        self.subtab_summary = self.tab_hero_internal.add(" Resumo do Herói ")
+        self.subtab_achievements = self.tab_hero_internal.add(" Conquistas ")
         self.subtab_global = self.tab_hero_internal.add(" Estatísticas Globais ")
-        self.setup_subtab_analysis(); self.setup_subtab_summary(); self.setup_subtab_global()
+        self.setup_subtab_analysis()
+        self.setup_subtab_summary()
+        self.setup_subtab_achievements()
+        self.setup_subtab_global()
 
     def setup_subtab_analysis(self):
         self.subtab_analysis.grid_columnconfigure(0, weight=1); self.subtab_analysis.grid_columnconfigure(1, weight=3); self.subtab_analysis.grid_rowconfigure(0, weight=1)
@@ -467,7 +472,6 @@ class TrackerApp(ctk.CTk):
 
     # >>> SUB-ABA 2: RESUMO DO HERÓI
     def setup_subtab_summary(self):
-        # Header
         self.frame_agg_header = ctk.CTkFrame(self.subtab_summary, corner_radius=12, fg_color=COLORS["bg_card"])
         self.frame_agg_header.pack(fill="x", padx=20, pady=20)
         
@@ -484,57 +488,48 @@ class TrackerApp(ctk.CTk):
         self.lbl_agg_stats = ctk.CTkLabel(self.frame_agg_header, text="-- Jogos | --% WR Total", font=FONTS["h2"], text_color="gray")
         self.lbl_agg_stats.pack(pady=(10, 5))
         
-        # Difficulty Breakdown Bar
         self.frame_diff_bar = ctk.CTkFrame(self.frame_agg_header, fg_color="transparent")
         self.frame_diff_bar.pack(pady=(0, 20))
         self.lbl_diff_counts = ctk.CTkLabel(self.frame_diff_bar, text="N: 0 | A: 0 | C: 0 | U: 0", font=FONTS["body_bold"], text_color=COLORS["highlight"])
         self.lbl_diff_counts.pack()
 
-        # Grid Content (3 Cols + Toggle)
         self.frame_agg_content = ctk.CTkFrame(self.subtab_summary, fg_color="transparent")
         self.frame_agg_content.pack(fill="both", expand=True, padx=20, pady=5)
-        
         for i in range(3): self.frame_agg_content.grid_columnconfigure(i, weight=1)
         self.frame_agg_content.grid_rowconfigure(0, weight=1)
 
-        # 3 Colunas de Scroll
         self.scroll_agg_vars = self.create_list_column(0, "VARIANTES")
         self.scroll_agg_vils = self.create_list_column(1, "VILÕES ENFRENTADOS")
         self.scroll_agg_envs = self.create_list_column(2, "AMBIENTES JOGADOS")
 
-        # Achievements Toggle
-        self.btn_toggle_achieve = ctk.CTkButton(self.subtab_summary, text="🏆 VER CONQUISTAS & PROGRESSO", 
-                                                command=self.toggle_achievements_view, fg_color=COLORS["warning"], text_color="black", font=FONTS["body_bold"])
-        self.btn_toggle_achieve.pack(fill="x", padx=20, pady=10)
+    # >>> SUB-ABA 3: CONQUISTAS (NOVA)
+    def setup_subtab_achievements(self):
+        self.frame_achieve_header = ctk.CTkFrame(self.subtab_achievements, corner_radius=12, fg_color=COLORS["bg_card"])
+        self.frame_achieve_header.pack(fill="x", padx=20, pady=20)
         
-        # Bug Fix: height removido (usa padrão/expansão) e preenchido com altura min via pack
-        self.achievements_frame = ctk.CTkScrollableFrame(self.subtab_summary, corner_radius=12, fg_color=COLORS["bg_card"], height=200)
-        self.lbl_achieve_content = ctk.CTkLabel(self.achievements_frame, text="Carregando...", justify="left", font=FONTS["mono"])
-        self.lbl_achieve_content.pack(padx=20, pady=20, fill="x")
-        # Esconde inicial (pack_forget não é necessário se não fizermos pack, mas vamos garantir)
-        # Na verdade, não damos pack no frame aqui, só no botão. O frame só aparece no toggle.
+        top_bar = ctk.CTkFrame(self.frame_achieve_header, fg_color="transparent")
+        top_bar.pack(fill="x", padx=20, pady=(20, 20))
+        
+        self.lbl_achieve_name = ctk.CTkLabel(top_bar, text="SELECIONE UM HERÓI", font=FONTS["h1"])
+        self.lbl_achieve_name.pack(side="left")
+        
+        self.btn_achieve_change = ctk.CTkButton(top_bar, text="Trocar Herói", command=self.open_analysis_hero_grid,
+                                            width=120, fg_color="#333", border_width=1, border_color="#555")
+        self.btn_achieve_change.pack(side="right")
+
+        self.scroll_achieve = ctk.CTkScrollableFrame(self.subtab_achievements, corner_radius=12, fg_color="transparent")
+        self.scroll_achieve.pack(fill="both", expand=True, padx=20, pady=10)
 
     def create_list_column(self, col, title):
         frame = ctk.CTkFrame(self.frame_agg_content, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"])
         frame.grid(row=0, column=col, sticky="nsew", padx=5)
-        # Centraliza o título da coluna
         ctk.CTkLabel(frame, text=title, font=FONTS["card_label"], text_color="gray").pack(pady=10, anchor="center")
         scroll = ctk.CTkScrollableFrame(frame, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=5, pady=5)
-        
-        # Centraliza o texto do conteúdo
         lbl_content = ctk.CTkLabel(scroll, text="...", justify="center", font=FONTS["dashboard_row"])
         lbl_content.pack(anchor="center")
         self.agg_lists_frames[title] = lbl_content
         return lbl_content
-
-    def toggle_achievements_view(self):
-        if self.achievements_frame.winfo_ismapped():
-            self.achievements_frame.pack_forget()
-            self.btn_toggle_achieve.configure(text="🏆 VER CONQUISTAS & PROGRESSO")
-        else:
-            self.achievements_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-            self.btn_toggle_achieve.configure(text="🔽 Ocultar Conquistas")
 
     def setup_subtab_global(self):
         self.frame_global_grid = ctk.CTkFrame(self.subtab_global, fg_color="transparent")
@@ -626,7 +621,9 @@ class TrackerApp(ctk.CTk):
         self.btn_select_analysis_hero.configure(text=hero_name, fg_color=COLORS["accent"])
         self.update_hero_variants_analysis(hero_name)
         self.calculate_aggregate_hero_stats(hero_name)
+        # Update Titles in both tabs
         self.lbl_agg_name.configure(text=hero_name.upper())
+        self.lbl_achieve_name.configure(text=hero_name.upper())
 
     def update_hero_variants_analysis(self, hero_name):
         variants = HEROES_DATA.get(hero_name, ["Base"])
@@ -683,11 +680,12 @@ class TrackerApp(ctk.CTk):
             
             variants = HEROES_DATA.get(hero, [])
             if variants:
-                all_vars_100 = True
+                star_count = 0
                 for v in variants:
                     v_full = hero if v == "Base" else f"{hero} ({v})"
-                    if hero_variants_wins[v_full] < 100: all_vars_100 = False; break
-                if all_vars_100: style['icon'] = "★"
+                    if hero_variants_wins[v_full] >= 100: star_count += 1
+                if star_count > 0: style['icon'] = "★" * star_count
+
             if style: style_map[hero] = style
         return style_map
 
@@ -768,6 +766,68 @@ class TrackerApp(ctk.CTk):
         else: i5 = "Min 2 jogos"
         return [total_games, win_rate_perc, i1, i2, i3, i4, i5]
 
+    def build_achievements_view(self, hero_name, total_wins, villains_norm, villains_ult, var_stats):
+        for widget in self.scroll_achieve.winfo_children(): widget.destroy()
+
+        ranks = [(10, "Bronze", COLORS["rank_bronze"]), (25, "Prata", COLORS["rank_silver"]), 
+                 (100, "Ouro", COLORS["rank_gold"]), (500, "Platina", COLORS["rank_platinum"]), 
+                 (1000, "Diamante", COLORS["rank_diamond"]), (2500, "SENTINEL", COLORS["rank_sentinel"])]
+        
+        curr_rank, curr_color, next_goal, next_rank_name = "Sem Ranque", "gray", 10, "Bronze"
+        for w, n, c in ranks:
+            if total_wins >= w: curr_rank, curr_color = n, c
+            else: next_goal, next_rank_name = w, n; break
+        
+        prog = 1.0 if total_wins >= 2500 else total_wins / next_goal
+        disp_next = "MÁXIMO ALCANÇADO" if total_wins >= 2500 else f"Próximo: {next_rank_name}"
+
+        self.create_achievement_card("RANQUE DE HERÓI", f"Atual: {curr_rank}", total_wins, next_goal, prog, curr_color, disp_next)
+
+        all_v = set(SOLO_VILLAINS_DATA.keys())
+        missing_n = sorted(list(all_v - villains_norm))
+        self.create_achievement_card("MAESTRIA NORMAL (Borda Prata)", f"Derrotou {len(villains_norm)}/{len(all_v)} Vilões", len(villains_norm), len(all_v), len(villains_norm)/len(all_v) if all_v else 0, COLORS["rank_silver"], "Derrote todos os vilões.", missing_n)
+
+        missing_u = sorted(list(all_v - villains_ult))
+        self.create_achievement_card("MAESTRIA ULTIMATE (Borda Ouro)", f"Derrotou {len(villains_ult)}/{len(all_v)} Vilões (Ultimate)", len(villains_ult), len(all_v), len(villains_ult)/len(all_v) if all_v else 0, COLORS["rank_gold"], "Derrote todos em Ultimate.", missing_u)
+
+        vars = HEROES_DATA.get(hero_name, [])
+        done_vars = 0; miss_vars = []
+        for v in vars:
+            vf = hero_name if v == "Base" else f"{hero_name} ({v})"
+            w = var_stats[vf][0]
+            if w >= 100: done_vars += 1
+            else: miss_vars.append(f"{v} ({w}/100)")
+        
+        self.create_achievement_card("ESTRELAS DE VARIANTE (★)", f"Conquistou {done_vars}/{len(vars)} Estrelas", done_vars, len(vars), done_vars/len(vars) if vars else 0, COLORS["highlight"], "1 estrela por variante com 100 vitórias.", miss_vars)
+
+    def create_achievement_card(self, title, status, cur, tgt, prog, color, desc, missing=None):
+        card = ctk.CTkFrame(self.scroll_achieve, corner_radius=12, fg_color=COLORS["bg_card"], border_width=1, border_color=COLORS["border"])
+        card.pack(fill="x", pady=10)
+        
+        head = ctk.CTkFrame(card, fg_color="transparent")
+        head.pack(fill="x", padx=15, pady=(15, 5))
+        ctk.CTkLabel(head, text=title, font=FONTS["h3"], text_color=color).pack(side="left")
+        ctk.CTkLabel(head, text=f"{cur}/{tgt}", font=FONTS["body_bold"], text_color="gray").pack(side="right")
+
+        bar = ctk.CTkProgressBar(card, height=15, corner_radius=8)
+        bar.pack(fill="x", padx=15, pady=5)
+        bar.set(prog); bar.configure(progress_color=color)
+
+        ctk.CTkLabel(card, text=desc, font=FONTS["body"], text_color="gray").pack(fill="x", padx=15, pady=(0, 10), anchor="w")
+
+        if missing:
+            det_frame = ctk.CTkFrame(card, fg_color="#222", corner_radius=8)
+            lbl_miss = ctk.CTkLabel(det_frame, text=", ".join(missing), font=FONTS["body"], text_color="gray", wraplength=800, justify="left")
+            
+            def toggle():
+                if det_frame.winfo_ismapped():
+                    det_frame.pack_forget(); btn.configure(text=f"Mostrar Faltantes ({len(missing)}) 🔽")
+                else:
+                    det_frame.pack(fill="x", padx=15, pady=(0, 15)); btn.configure(text="Ocultar Faltantes 🔼")
+
+            btn = ctk.CTkButton(card, text=f"Mostrar Faltantes ({len(missing)}) 🔽", command=toggle, fg_color="transparent", border_width=1, border_color=COLORS["border"], height=25, font=FONTS["body"])
+            btn.pack(padx=15, pady=(0, 15), anchor="w")
+
     def calculate_aggregate_hero_stats(self, base_name):
         conn = sqlite3.connect('sentinels_history.db')
         c = conn.cursor()
@@ -781,7 +841,6 @@ class TrackerApp(ctk.CTk):
         env_stats = defaultdict(lambda: [0, 0])
         diff_wins = {"Normal": 0, "Advanced": 0, "Challenge": 0, "Ultimate": 0}
         
-        # Achievements Trackers
         unique_villains_norm = set()
         unique_villains_ult = set()
 
@@ -799,7 +858,6 @@ class TrackerApp(ctk.CTk):
                 total_w += win; total_g += 1
                 env_stats[env][0] += win; env_stats[env][1] += 1
                 
-                # Villain & Difficulty Processing
                 v_list = v_str.split(",") if g_type == "TEAM" else [v_str]
                 current_diff = "Normal"
                 
@@ -833,6 +891,8 @@ class TrackerApp(ctk.CTk):
         diff_txt = f"WINS POR DIFICULDADE:  N:{diff_wins['Normal']}  |  A:{diff_wins['Advanced']}  |  C:{diff_wins['Challenge']}  |  U:{diff_wins['Ultimate']}"
         self.lbl_diff_counts.configure(text=diff_txt)
 
+        self.build_achievements_view(base_name, total_w, unique_villains_norm, unique_villains_ult, var_stats)
+
         def update_list(label_key, data_map):
             txt = ""
             sorted_items = sorted(data_map.items(), key=lambda x: x[1][1], reverse=True)
@@ -846,42 +906,6 @@ class TrackerApp(ctk.CTk):
         update_list("VARIANTES", var_stats)
         update_list("VILÕES ENFRENTADOS", villain_stats)
         update_list("AMBIENTES JOGADOS", env_stats)
-
-        # Achievements Panel Update
-        achieve_txt = f"🏆 PROGRESSO DE CONQUISTAS: {base_name}\n\n"
-        
-        # Rank
-        ranks = [(10, "Bronze"), (25, "Prata"), (100, "Ouro"), (500, "Platina"), (1000, "Diamante"), (2500, "SENTINEL")]
-        curr_rank = "Nenhum"; next_rank = ranks[0]
-        for r_wins, r_name in ranks:
-            if total_w >= r_wins: curr_rank = r_name
-            else: next_rank = (r_wins, r_name); break
-        
-        achieve_txt += f"• RANQUE ATUAL: {curr_rank.upper()}\n"
-        if total_w < 2500:
-            achieve_txt += f"  Próximo: {next_rank[1]} ({total_w}/{next_rank[0]} Wins)\n\n"
-        else: achieve_txt += "  MÁXIMO ALCANÇADO!\n\n"
-
-        # Mastery
-        total_unique_v = len(SOLO_VILLAINS_DATA)
-        achieve_txt += f"• MAESTRIA NORMAL (Borda Prata): {len(unique_villains_norm)}/{total_unique_v} Vilões\n"
-        achieve_txt += f"• MAESTRIA ULTIMATE (Borda Ouro): {len(unique_villains_ult)}/{total_unique_v} Vilões\n\n"
-
-        # Variants Star
-        achieve_txt += "• ESTRELA DE VARIANTE (100+ Wins com todas):\n"
-        missing_vars = []
-        all_variants = HEROES_DATA.get(base_name, [])
-        for v in all_variants:
-            v_full = base_name if v == "Base" else f"{base_name} ({v})"
-            wins = var_stats[v_full][0]
-            if wins < 100: missing_vars.append(f"{v} ({wins}/100)")
-        
-        if not missing_vars: achieve_txt += "  ★ CONQUISTADO! Todas as variantes dominadas."
-        else:
-            achieve_txt += "  Faltam:\n"
-            for mv in missing_vars: achieve_txt += f"   - {mv}\n"
-
-        self.lbl_achieve_content.configure(text=achieve_txt)
 
     def calculate_global_stats(self):
         conn = sqlite3.connect('sentinels_history.db')
