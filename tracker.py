@@ -20,6 +20,8 @@ COLORS = {
     "rank_bronze": "#cd7f32",   "rank_silver": "#c0c0c0",
     "rank_gold": "#ffd700",     "rank_platinum": "#e5e4e2",
     "rank_diamond": "#b9f2ff",  "rank_sentinel": "#a020f0",
+    # Mastery
+    "mastery_text": "#00e676",  # Verde XP
     # Dificuldade
     "diff_challenge": "#e67e22", "diff_ultimate": "#8e44ad"
 }
@@ -85,64 +87,42 @@ HEROES_DATA = {
     "Lantern Jack": ["Base"]
 }
 
-SOLO_VILLAINS_DATA = {
-    "Baron Blade": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Mad Bomber Blade": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Citizen Dawn": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Grand Warlord Voss": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Omnitron": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Cosmic Omnitron": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Ambuscade": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Spite": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Agent of Gloom Spite": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Chairman": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Akash'Bhuta": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "GloomWeaver": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Skinwalker GloomWeaver": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Matriarch": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Miss Information": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Plague Rat": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Ennead": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Apostate": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Iron Legacy": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Kismet": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Unstable Kismet": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "La Capitan": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Dreamer": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Kaargra Warfang": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Progeny": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Deadline": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Wager Master": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Infinitor": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Tormented Infinitor": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Chokepoint": ["Normal", "Advanced", "Challenge", "Ultimate"],
-    "Argo": ["Normal", "Advanced"],
-    "Meta-Mind": ["Normal", "Advanced"],
-    "Hades": ["Normal", "Advanced"],
-    "Omega": ["Normal", "Advanced"],
-    "Malador": ["Normal", "Advanced"],
-    "OblivAeon": ["Normal", "Advanced"]
+# --- DADOS DE DIFICULDADE (XP) ---
+SOLO_VILLAIN_DIFF = {
+    "Baron Blade": 1, "Mad Bomber Blade": 2, "Citizen Dawn": 4, "Grand Warlord Voss": 3,
+    "Omnitron": 1, "Cosmic Omnitron": 3, "Ambuscade": 1, "Spite": 2, "Agent of Gloom Spite": 3,
+    "Chairman": 4, "Akash'Bhuta": 2, "GloomWeaver": 1, "Skinwalker GloomWeaver": 3,
+    "Matriarch": 3, "Miss Information": 4, "Plague Rat": 2, "Ennead": 3, "Apostate": 2,
+    "Iron Legacy": 4, "Kismet": 1, "Unstable Kismet": 2, "La Capitan": 2, "Dreamer": 3,
+    "Kaargra Warfang": 4, "Progeny": 4, "Deadline": 2, "Wager Master": 3, "Infinitor": 3,
+    "Tormented Infinitor": 1, "Chokepoint": 1, "Argo": 2, "Meta-Mind": 2, "Hades": 2,
+    "Omega": 2, "Malador": 2, "OblivAeon": 20
 }
 
-TEAM_VILLAINS_LIST = [
-    "Baron Blade", "Friction", "Fright Train", "Proletariat", "Ermine",
-    "Ambuscade", "Biomancer", "Bugbear", "Hammer & Anvil", "Greazer", 
-    "La Capitan", "Miss Information", "Plague Rat", "Sergeant Steel", "The Operative"
-]
-TEAM_VILLAINS_LIST.sort()
+TEAM_VILLAIN_DIFF = {
+    "Baron Blade": 3, "Friction": 3, "Fright Train": 2, "Proletariat": 2, "Ermine": 2,
+    "Ambuscade": 4, "Biomancer": 3, "Bugbear": 3, "Hammer & Anvil": 3, "Greazer": 2,
+    "La Capitan": 1, "Miss Information": 2, "Plague Rat": 3, "Sergeant Steel": 3, "The Operative": 1
+}
 
-AMBIENTES = [
-    "Megalopolis", "Insula Primalis", "Ruins of Atlantis", 
-    "Wagner Mars Base", "Rook City", "Pike Industrial Complex",
-    "Tomb of Anubis", "Realm of Discord", "Nexus of the Void", "The Block",
-    "Time Cataclysm", "Silver Gulch", "Final Wasteland", "Omnitron-IV",
-    "Celestial Tribunal", "Magmaria", "Freedom Tower", "Mobile Defense Platform",
-    "Dok'Thorath Capital", "Enclave of the Endlings", "Court of Blood", "Madame Mittermeier's",
-    "Temple of Zhu Long", "Champion Studios", "Fort Adamant", "Maerynian Refuge",
-    "Mordengrad", "Farside City", "Freedom City", "Tartarus",
-    "Terminus", "Sub-Terra"
-]
-AMBIENTES.sort()
+ENV_DIFF = {
+    "Megalopolis": 2, "Insula Primalis": 3, "Ruins of Atlantis": 4, "Wagner Mars Base": 2,
+    "Rook City": 5, "Pike Industrial Complex": 3, "Tomb of Anubis": 3, "Realm of Discord": 2,
+    "Nexus of the Void": 3, "The Block": 1, "Time Cataclysm": 2, "Silver Gulch": 3,
+    "Final Wasteland": 1, "Omnitron-IV": 4, "Celestial Tribunal": 2, "Magmaria": 2,
+    "Freedom Tower": 1, "Mobile Defense Platform": 1, "Dok'Thorath Capital": 3,
+    "Enclave of the Endlings": 2, "Court of Blood": 3, "Madame Mittermeier's": 3,
+    "Temple of Zhu Long": 1, "Champion Studios": 2, "Fort Adamant": 2, "Maerynian Refuge": 3,
+    "Mordengrad": 4, "Farside City": 2, "Freedom City": 2, "Tartarus": 2,
+    "Terminus": 2, "Sub-Terra": 2
+}
+
+# Listas usadas nos menus
+SOLO_VILLAINS_DATA = {k: ["Normal", "Advanced", "Challenge", "Ultimate"] for k in SOLO_VILLAIN_DIFF.keys()}
+SOLO_VILLAINS_DATA["OblivAeon"] = ["Normal", "Advanced"]
+TEAM_VILLAINS_LIST = sorted(list(TEAM_VILLAIN_DIFF.keys()))
+AMBIENTES = sorted(list(ENV_DIFF.keys()))
+
 
 # --- 3. BANCO DE DADOS ---
 def init_db():
@@ -166,7 +146,7 @@ def init_db():
 # --- 4. COMPONENTES VISUAIS ---
 
 class GridSelectionModal(ctk.CTkToplevel):
-    def __init__(self, parent, title, item_list, callback, item_stats=None, style_map=None):
+    def __init__(self, parent, title, item_list, callback, item_stats=None, style_map=None, mastery_map=None):
         super().__init__(parent)
         self.callback = callback
         self.title(title)
@@ -189,23 +169,42 @@ class GridSelectionModal(ctk.CTkToplevel):
             icon = ""
             border_width = 1
 
+            # Stats line
+            stats_line = ""
             if item_stats and item_name in item_stats:
                 stats = item_stats[item_name]
-                display_text = f"{item_name}\n🎮 {stats[0]}  |  🏆 {stats[1]:.0f}%"
+                stats_line = f"\n🎮 {stats[0]}  |  🏆 {stats[1]:.0f}%"
 
+            # Mastery Line
+            mastery_line = ""
+            if mastery_map and item_name in mastery_map:
+                m_level, _ = mastery_map[item_name]
+                mastery_line = f"  (MR {m_level})"
+
+            # Achievements Style
             if style_map and item_name in style_map:
                 style = style_map[item_name]
                 if style.get('text_color'): btn_text_color = style['text_color']
                 if style.get('border_color'): btn_border = style['border_color']; border_width = 2
-                if style.get('icon'): icon = style['icon']; display_text = f"{display_text} {icon}"
+                if style.get('icon'): icon = style['icon']
+
+            final_text = f"{item_name}{mastery_line} {icon}{stats_line}"
 
             btn = ctk.CTkButton(
-                scroll, text=display_text, font=FONTS["body_bold"], fg_color=btn_fg,
+                scroll, text=final_text, font=FONTS["body_bold"], fg_color=btn_fg,
                 border_width=border_width, border_color=btn_border, text_color=btn_text_color,
-                hover_color=COLORS["accent"], height=55 if item_stats else 45,
+                hover_color=COLORS["accent"], height=60,
                 command=lambda x=item_name: self.on_select(x)
             )
             btn.grid(row=i//columns, column=i%columns, padx=5, pady=5, sticky="ew")
+            
+            # Mini Barra de XP no botão
+            if mastery_map and item_name in mastery_map:
+                _, xp = mastery_map[item_name]
+                prog = (xp % 1000) / 1000
+                xp_bar = ctk.CTkProgressBar(btn, height=3, width=50, progress_color=COLORS["mastery_text"])
+                xp_bar.set(prog)
+                xp_bar.place(relx=0.5, rely=0.9, anchor="center", relwidth=0.8)
 
         ctk.CTkButton(self, text="Cancelar", command=self.destroy, fg_color=COLORS["danger"]).pack(pady=10)
 
@@ -215,8 +214,9 @@ class GridSelectionModal(ctk.CTkToplevel):
         self.callback(item_name) 
 
 class VillainSelector(ctk.CTkFrame):
-    def __init__(self, master, index, **kwargs):
+    def __init__(self, master, index, controller=None, **kwargs):
         super().__init__(master, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"], **kwargs)
+        self.controller = controller
         self.selected_villain = None
         lbl = ctk.CTkLabel(self, text=f"Vilão {index}", font=("Roboto", 12, "bold"), text_color=COLORS["text_muted"], width=60)
         lbl.pack(side="left", padx=10)
@@ -225,7 +225,9 @@ class VillainSelector(ctk.CTkFrame):
         self.btn_select.pack(side="left", fill="x", expand=True, padx=10, pady=8)
 
     def open_grid(self):
-        GridSelectionModal(self.winfo_toplevel(), "Selecione o Vilão", TEAM_VILLAINS_LIST, self.update_selection)
+        # Usa self.controller ou self.winfo_toplevel() se controller for None
+        parent = self.controller if self.controller else self.winfo_toplevel()
+        GridSelectionModal(parent, "Selecione o Vilão", TEAM_VILLAINS_LIST, self.update_selection)
 
     def update_selection(self, name):
         self.selected_villain = name
@@ -239,8 +241,9 @@ class VillainSelector(ctk.CTkFrame):
         self.configure(border_color=COLORS["border"])
 
 class HeroSelector(ctk.CTkFrame):
-    def __init__(self, master, index, **kwargs):
+    def __init__(self, master, index, controller=None, **kwargs):
         super().__init__(master, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"], **kwargs)
+        self.controller = controller # Referência ao app principal
         self.selected_hero_name = None 
         self.selected_variant = None
         self.lbl_idx = ctk.CTkLabel(self, text=f"{index}", font=("Arial", 20, "bold"), text_color=COLORS["text_muted"], width=30)
@@ -254,26 +257,45 @@ class HeroSelector(ctk.CTkFrame):
         self.lbl_variant.pack(pady=(2, 0))
 
     def open_hero_grid(self):
-        app = self.winfo_toplevel()
-        style_map = app.get_hero_achievement_styles() if hasattr(app, "get_hero_achievement_styles") else None
+        # Usa o controller passado no init para evitar erro de _tkinter.tkapp
+        app = self.controller if self.controller else self.winfo_toplevel()
+        
+        style_map = None
+        mastery_map = None
+        # Verifica se o app tem os métodos antes de chamar
+        if hasattr(app, "get_hero_achievement_styles"):
+            style_map = app.get_hero_achievement_styles()
+        if hasattr(app, "get_hero_mastery_map"):
+            mastery_map = app.get_hero_mastery_map()
+            
         hero_names = sorted(list(HEROES_DATA.keys()))
-        GridSelectionModal(self.winfo_toplevel(), "Selecione um Herói", hero_names, self.update_hero_selection, style_map=style_map)
+        GridSelectionModal(app, "Selecione um Herói", hero_names, self.update_hero_selection, style_map=style_map, mastery_map=mastery_map)
 
     def update_hero_selection(self, hero_name):
         self.selected_hero_name = hero_name
-        app = self.winfo_toplevel()
+        app = self.controller if self.controller else self.winfo_toplevel()
         text_color = "white"
+        
         if hasattr(app, "get_hero_achievement_styles"):
             styles = app.get_hero_achievement_styles()
             if hero_name in styles and styles[hero_name].get('text_color'): text_color = styles[hero_name]['text_color']
-        self.btn_select_hero.configure(text=hero_name, fg_color=COLORS["accent"], text_color=text_color)
+        
+        display_text = hero_name
+        if hasattr(app, "get_hero_mastery_map"):
+            m_map = app.get_hero_mastery_map()
+            if hero_name in m_map:
+                display_text = f"{hero_name} (MR {m_map[hero_name][0]})"
+
+        self.btn_select_hero.configure(text=display_text, fg_color=COLORS["accent"], text_color=text_color)
         self.configure(border_color=COLORS["accent"])
         self.open_variant_grid()
 
     def open_variant_grid(self):
         if not self.selected_hero_name: return
         variants = HEROES_DATA.get(self.selected_hero_name, ["Base"])
-        self.after(200, lambda: GridSelectionModal(self.winfo_toplevel(), f"Variante de {self.selected_hero_name}", variants, self.update_variant_selection))
+        # Usa o controller
+        parent = self.controller if self.controller else self.winfo_toplevel()
+        self.after(200, lambda: GridSelectionModal(parent, f"Variante de {self.selected_hero_name}", variants, self.update_variant_selection))
 
     def update_variant_selection(self, variant):
         self.selected_variant = variant
@@ -296,7 +318,7 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.2.2")
+        self.title("Sentinels Tracker v22.0 (Mastery Tab & Stability)")
         self.geometry("1300x850")
         
         # Estado e Refs
@@ -312,8 +334,12 @@ class TrackerApp(ctk.CTk):
         self.dash_cards_frames = {} 
         self.global_stat_labels = {} 
         self.agg_lists_frames = {} 
+        self.achievements_frame = None 
+        self.mastery_labels = {} 
+        self.mastery_history_frame = None 
+        self.lbl_mastery_name = None 
+        self.lbl_agg_name = None # Inicializar para evitar erro
         self.lbl_achieve_name = None
-        self.achievements_container = None 
 
         self.main_container = ctk.CTkTabview(self, corner_radius=15)
         self.main_container.pack(fill="both", expand=True, padx=15, pady=15)
@@ -360,7 +386,8 @@ class TrackerApp(ctk.CTk):
         ctk.CTkLabel(self.frame_team, text="TIME DE VILÕES (3-5)", font=FONTS["h3"]).pack(anchor="w", padx=20)
         self.team_selectors = []
         for i in range(5):
-            sel = VillainSelector(self.frame_team, index=i+1)
+            # PASSANDO CONTROLLER (SELF)
+            sel = VillainSelector(self.frame_team, index=i+1, controller=self)
             sel.pack(padx=20, pady=4, fill="x")
             self.team_selectors.append(sel)
         self.frame_solo.pack(fill="x")
@@ -386,7 +413,8 @@ class TrackerApp(ctk.CTk):
         ctk.CTkLabel(self.right_panel, text="EQUIPE DE HERÓIS", font=FONTS["h2"]).pack(pady=(0, 15), anchor="w")
         self.hero_selectors = []
         for i in range(5):
-            sel = HeroSelector(self.right_panel, index=i+1)
+            # PASSANDO CONTROLLER (SELF)
+            sel = HeroSelector(self.right_panel, index=i+1, controller=self)
             sel.pack(padx=0, pady=6, fill="x")
             self.hero_selectors.append(sel)
 
@@ -428,10 +456,13 @@ class TrackerApp(ctk.CTk):
         self.subtab_analysis = self.tab_hero_internal.add(" Análise Específica ")
         self.subtab_summary = self.tab_hero_internal.add(" Resumo do Herói ")
         self.subtab_achievements = self.tab_hero_internal.add(" Conquistas ")
+        self.subtab_mastery = self.tab_hero_internal.add(" Maestria & XP ") # NOVA ABA
         self.subtab_global = self.tab_hero_internal.add(" Estatísticas Globais ")
+        
         self.setup_subtab_analysis()
         self.setup_subtab_summary()
         self.setup_subtab_achievements()
+        self.setup_subtab_mastery() # SETUP NOVA ABA
         self.setup_subtab_global()
 
     def setup_subtab_analysis(self):
@@ -502,7 +533,7 @@ class TrackerApp(ctk.CTk):
         self.scroll_agg_vils = self.create_list_column(1, "VILÕES ENFRENTADOS")
         self.scroll_agg_envs = self.create_list_column(2, "AMBIENTES JOGADOS")
 
-    # >>> SUB-ABA 3: CONQUISTAS (NOVA)
+    # >>> SUB-ABA 3: CONQUISTAS
     def setup_subtab_achievements(self):
         self.frame_achieve_header = ctk.CTkFrame(self.subtab_achievements, corner_radius=12, fg_color=COLORS["bg_card"])
         self.frame_achieve_header.pack(fill="x", padx=20, pady=20)
@@ -519,6 +550,37 @@ class TrackerApp(ctk.CTk):
 
         self.scroll_achieve = ctk.CTkScrollableFrame(self.subtab_achievements, corner_radius=12, fg_color="transparent")
         self.scroll_achieve.pack(fill="both", expand=True, padx=20, pady=10)
+    
+    # >>> SUB-ABA 4: MAESTRIA & XP (NOVA)
+    def setup_subtab_mastery(self):
+        # Header com Nível e Botão
+        self.frame_mastery_header = ctk.CTkFrame(self.subtab_mastery, corner_radius=12, fg_color=COLORS["bg_card"])
+        self.frame_mastery_header.pack(fill="x", padx=20, pady=20)
+
+        top_bar = ctk.CTkFrame(self.frame_mastery_header, fg_color="transparent")
+        top_bar.pack(fill="x", padx=20, pady=(20, 0))
+
+        self.lbl_mastery_name = ctk.CTkLabel(top_bar, text="SELECIONE UM HERÓI", font=FONTS["h1"])
+        self.lbl_mastery_name.pack(side="left")
+
+        self.btn_mastery_change = ctk.CTkButton(top_bar, text="Trocar Herói", command=self.open_analysis_hero_grid,
+                                            width=120, fg_color="#333", border_width=1, border_color="#555")
+        self.btn_mastery_change.pack(side="right")
+        
+        # Barra de XP Gigante
+        self.mastery_labels["bar_level"] = ctk.CTkLabel(self.frame_mastery_header, text="NÍVEL DE MAESTRIA: 0", font=("Roboto", 20, "bold"), text_color=COLORS["mastery_text"])
+        self.mastery_labels["bar_level"].pack(pady=(0, 5))
+        
+        self.mastery_xp_bar = ctk.CTkProgressBar(self.frame_mastery_header, height=25, corner_radius=12, progress_color=COLORS["mastery_text"])
+        self.mastery_xp_bar.pack(fill="x", padx=40, pady=5)
+        self.mastery_xp_bar.set(0)
+        
+        self.mastery_labels["bar_text"] = ctk.CTkLabel(self.frame_mastery_header, text="0 / 1000 XP", font=FONTS["body_bold"], text_color="gray")
+        self.mastery_labels["bar_text"].pack(pady=(0, 20))
+
+        # Lista de Histórico
+        self.mastery_history_frame = ctk.CTkScrollableFrame(self.subtab_mastery, corner_radius=12, fg_color="transparent", label_text="HISTÓRICO DE BATALHA & XP", label_font=FONTS["h3"])
+        self.mastery_history_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
     def create_list_column(self, col, title):
         frame = ctk.CTkFrame(self.frame_agg_content, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"])
@@ -613,22 +675,117 @@ class TrackerApp(ctk.CTk):
     def open_analysis_hero_grid(self):
         hero_stats_map = self.get_all_heroes_stats_map()
         style_map = self.get_hero_achievement_styles()
+        mastery_map = self.get_hero_mastery_map()
         sorted_heroes = sorted(list(HEROES_DATA.keys()), key=lambda x: (hero_stats_map.get(x, (0,0))[0], hero_stats_map.get(x, (0,0))[1]), reverse=True)
-        GridSelectionModal(self, "Analisar Herói", sorted_heroes, self.on_analysis_hero_selected, item_stats=hero_stats_map, style_map=style_map)
+        GridSelectionModal(self, "Analisar Herói", sorted_heroes, self.on_analysis_hero_selected, item_stats=hero_stats_map, style_map=style_map, mastery_map=mastery_map)
 
     def on_analysis_hero_selected(self, hero_name):
         self.selected_analysis_hero = hero_name
         self.btn_select_analysis_hero.configure(text=hero_name, fg_color=COLORS["accent"])
         self.update_hero_variants_analysis(hero_name)
         self.calculate_aggregate_hero_stats(hero_name)
-        # Update Titles in both tabs
+        # Update Titles
         self.lbl_agg_name.configure(text=hero_name.upper())
         self.lbl_achieve_name.configure(text=hero_name.upper())
+        self.lbl_mastery_name.configure(text=hero_name.upper())
 
     def update_hero_variants_analysis(self, hero_name):
         variants = HEROES_DATA.get(hero_name, ["Base"])
         self.combo_variant_analysis.configure(values=variants, state="normal"); self.combo_variant_analysis.set("Base")
         self.display_hero_insights()
+
+    # --- MASTERY & XP LOGIC ---
+    def calculate_match_xp(self, villain_str, env, result, game_type):
+        if result != "Vitória": return 0
+        
+        # 1. Base & Mode
+        v_xp_base, env_xp_base = 500, 75
+        is_ultimate = "(Ultimate)" in villain_str
+        is_challenge = "(Challenge)" in villain_str
+        is_advanced = "(Advanced)" in villain_str
+        
+        if is_ultimate: v_xp_base, env_xp_base = 1000, 125
+        elif is_challenge: v_xp_base, env_xp_base = 750, 100
+        elif is_advanced: v_xp_base, env_xp_base = 750, 100
+        
+        # 2. Villain Mult
+        v_mult = 1
+        if game_type == "SOLO":
+            v_name_clean = villain_str.split(" (")[0]
+            v_mult = SOLO_VILLAIN_DIFF.get(v_name_clean, 1)
+        else:
+            team_members = villain_str.split(",")
+            total_diff = sum([TEAM_VILLAIN_DIFF.get(tm, 1) for tm in team_members])
+            count = len(team_members)
+            if count > 0: v_mult = total_diff / count
+            
+        # 3. Env Mult
+        e_mult = ENV_DIFF.get(env, 1)
+        
+        total_xp = (v_xp_base * v_mult) + (env_xp_base * e_mult)
+        return int(total_xp)
+
+    def get_hero_mastery_map(self):
+        conn = sqlite3.connect('sentinels_history.db')
+        c = conn.cursor()
+        c.execute("SELECT heroes, villain, environment, result, game_type FROM games")
+        rows = c.fetchall()
+        conn.close()
+        hero_xp = defaultdict(int)
+        for h_str, v_str, env, res, g_type in rows:
+            xp = self.calculate_match_xp(v_str, env, res, g_type)
+            if xp > 0:
+                for h_full in h_str.split(","):
+                    h_base = h_full.split(" (")[0]
+                    hero_xp[h_base] += xp
+        mastery_map = {}
+        for h, xp in hero_xp.items():
+            level = xp // 1000
+            mastery_map[h] = (level, xp)
+        return mastery_map
+
+    def update_mastery_history_list(self, hero_name):
+        for widget in self.mastery_history_frame.winfo_children(): widget.destroy()
+        
+        conn = sqlite3.connect('sentinels_history.db')
+        c = conn.cursor()
+        c.execute("SELECT villain, environment, result, game_type, heroes FROM games")
+        rows = c.fetchall()
+        conn.close()
+
+        match_log = []
+        total_xp = 0
+
+        for v_str, env, res, g_type, h_str in rows:
+            is_in_match = False
+            for h in h_str.split(","):
+                if h.split(" (")[0] == hero_name:
+                    is_in_match = True
+                    break
+            if is_in_match:
+                xp = self.calculate_match_xp(v_str, env, res, g_type)
+                total_xp += xp
+                if xp > 0:
+                    match_log.append((v_str, env, res, xp))
+
+        m_level = total_xp // 1000
+        m_curr = total_xp % 1000
+        self.mastery_labels["bar_level"].configure(text=f"NÍVEL DE MAESTRIA: {m_level}")
+        self.mastery_labels["bar_text"].configure(text=f"{m_curr} / 1000 XP (Total: {total_xp:,})")
+        self.mastery_xp_bar.set(m_curr / 1000)
+
+        for v, e, r, x in reversed(match_log):
+            row = ctk.CTkFrame(self.mastery_history_frame, fg_color=COLORS["bg_card"], corner_radius=6)
+            row.pack(fill="x", pady=2, padx=5)
+            row.grid_columnconfigure(0, weight=3)
+            row.grid_columnconfigure(1, weight=2)
+            row.grid_columnconfigure(2, weight=1)
+            ctk.CTkLabel(row, text=v, font=FONTS["body_bold"], anchor="w").grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+            ctk.CTkLabel(row, text=e, font=FONTS["body"], text_color="gray", anchor="w").grid(row=0, column=1, padx=5, sticky="ew")
+            ctk.CTkLabel(row, text=f"+{x} XP", font=FONTS["body_bold"], text_color=COLORS["mastery_text"], anchor="e").grid(row=0, column=2, padx=10, sticky="ew")
+
+        if not match_log:
+            ctk.CTkLabel(self.mastery_history_frame, text="Nenhuma partida vitoriosa registrada.", text_color="gray").pack(pady=20)
 
     # --- ACHIEVEMENTS LOGIC ---
     def get_hero_achievement_styles(self):
@@ -766,7 +923,88 @@ class TrackerApp(ctk.CTk):
         else: i5 = "Min 2 jogos"
         return [total_games, win_rate_perc, i1, i2, i3, i4, i5]
 
+    def calculate_aggregate_hero_stats(self, base_name):
+        conn = sqlite3.connect('sentinels_history.db')
+        c = conn.cursor()
+        c.execute("SELECT result, heroes, villain, environment, game_type FROM games")
+        rows = c.fetchall()
+        conn.close()
+
+        total_g, total_w = 0, 0
+        var_stats = defaultdict(lambda: [0, 0])
+        villain_stats = defaultdict(lambda: [0, 0])
+        env_stats = defaultdict(lambda: [0, 0])
+        diff_wins = {"Normal": 0, "Advanced": 0, "Challenge": 0, "Ultimate": 0}
+        
+        unique_villains_norm = set()
+        unique_villains_ult = set()
+
+        for res, h_str, v_str, env, g_type in rows:
+            win = 1 if res == "Vitória" else 0
+            h_list = h_str.split(",")
+            
+            hero_in_game = False
+            for h in h_list:
+                if h.split(" (")[0] == base_name:
+                    hero_in_game = True
+                    var_stats[h][0] += win; var_stats[h][1] += 1
+            
+            if hero_in_game:
+                total_w += win; total_g += 1
+                env_stats[env][0] += win; env_stats[env][1] += 1
+                
+                v_list = v_str.split(",") if g_type == "TEAM" else [v_str]
+                current_diff = "Normal"
+                
+                for v_full in v_list:
+                    v_clean = v_full
+                    is_ult = False; is_norm = False
+                    
+                    if g_type == "SOLO":
+                        if "(" in v_full:
+                            v_clean = v_full.split(" (")[0]
+                            if "(Ultimate)" in v_full: current_diff = "Ultimate"; is_ult = True
+                            elif "(Challenge)" in v_full: current_diff = "Challenge"
+                            elif "(Advanced)" in v_full: current_diff = "Advanced"
+                            else: is_norm = True 
+                        else: is_norm = True
+                    
+                    villain_stats[v_clean][0] += win
+                    villain_stats[v_clean][1] += 1
+                    
+                    if win:
+                        if is_norm: unique_villains_norm.add(v_clean)
+                        if is_ult: unique_villains_ult.add(v_clean)
+                
+                if win: diff_wins[current_diff] += 1
+
+        wr = (total_w/total_g)*100 if total_g > 0 else 0
+        self.lbl_agg_name.configure(text=base_name.upper())
+        self.lbl_agg_stats.configure(text=f"{total_g} JOGOS  |  {wr:.1f}% WR GERAL")
+        
+        diff_txt = f"WINS POR DIFICULDADE:  N:{diff_wins['Normal']}  |  A:{diff_wins['Advanced']}  |  C:{diff_wins['Challenge']}  |  U:{diff_wins['Ultimate']}"
+        self.lbl_diff_counts.configure(text=diff_txt)
+
+        # Chama a construção das ABAS extras
+        self.build_achievements_view(base_name, total_w, unique_villains_norm, unique_villains_ult, var_stats)
+        self.update_mastery_history_list(base_name)
+
+        def update_list(label_key, data_map):
+            txt = ""
+            sorted_items = sorted(data_map.items(), key=lambda x: x[1][1], reverse=True)
+            for name, stats in sorted_items:
+                v_wr = (stats[0]/stats[1])*100
+                txt += f"{v_wr:>5.0f}% WR | {stats[1]:>3} J | {name}\n"
+                txt += "─"*45 + "\n"
+            if not txt: txt = "Sem dados."
+            self.agg_lists_frames[label_key].configure(text=txt)
+
+        update_list("VARIANTES", var_stats)
+        update_list("VILÕES ENFRENTADOS", villain_stats)
+        update_list("AMBIENTES JOGADOS", env_stats)
+
     def build_achievements_view(self, hero_name, total_wins, villains_norm, villains_ult, var_stats):
+        # Limpa widgets anteriores
         for widget in self.scroll_achieve.winfo_children(): widget.destroy()
 
         ranks = [(10, "Bronze", COLORS["rank_bronze"]), (25, "Prata", COLORS["rank_silver"]), 
@@ -823,89 +1061,10 @@ class TrackerApp(ctk.CTk):
                 if det_frame.winfo_ismapped():
                     det_frame.pack_forget(); btn.configure(text=f"Mostrar Faltantes ({len(missing)}) 🔽")
                 else:
-                    det_frame.pack(fill="x", padx=15, pady=(0, 15)); btn.configure(text="Ocultar Faltantes 🔼")
+                    det_frame.pack(fill="x", padx=15, pady=(0, 15)); lbl_miss.pack(padx=10, pady=10, fill="x"); btn.configure(text="Ocultar Faltantes 🔼")
 
             btn = ctk.CTkButton(card, text=f"Mostrar Faltantes ({len(missing)}) 🔽", command=toggle, fg_color="transparent", border_width=1, border_color=COLORS["border"], height=25, font=FONTS["body"])
             btn.pack(padx=15, pady=(0, 15), anchor="w")
-
-    def calculate_aggregate_hero_stats(self, base_name):
-        conn = sqlite3.connect('sentinels_history.db')
-        c = conn.cursor()
-        c.execute("SELECT result, heroes, villain, environment, game_type FROM games")
-        rows = c.fetchall()
-        conn.close()
-
-        total_g, total_w = 0, 0
-        var_stats = defaultdict(lambda: [0, 0])
-        villain_stats = defaultdict(lambda: [0, 0])
-        env_stats = defaultdict(lambda: [0, 0])
-        diff_wins = {"Normal": 0, "Advanced": 0, "Challenge": 0, "Ultimate": 0}
-        
-        unique_villains_norm = set()
-        unique_villains_ult = set()
-
-        for res, h_str, v_str, env, g_type in rows:
-            win = 1 if res == "Vitória" else 0
-            h_list = h_str.split(",")
-            
-            hero_in_game = False
-            for h in h_list:
-                if h.split(" (")[0] == base_name:
-                    hero_in_game = True
-                    var_stats[h][0] += win; var_stats[h][1] += 1
-            
-            if hero_in_game:
-                total_w += win; total_g += 1
-                env_stats[env][0] += win; env_stats[env][1] += 1
-                
-                v_list = v_str.split(",") if g_type == "TEAM" else [v_str]
-                current_diff = "Normal"
-                
-                for v_full in v_list:
-                    v_clean = v_full
-                    is_ult = False; is_norm = False
-                    
-                    if g_type == "SOLO":
-                        if "(" in v_full:
-                            v_clean = v_full.split(" (")[0]
-                            if "(Ultimate)" in v_full: current_diff = "Ultimate"; is_ult = True
-                            elif "(Challenge)" in v_full: current_diff = "Challenge"
-                            elif "(Advanced)" in v_full: current_diff = "Advanced"
-                            else: is_norm = True # Fallback
-                        else: is_norm = True
-                    
-                    villain_stats[v_clean][0] += win
-                    villain_stats[v_clean][1] += 1
-                    
-                    if win:
-                        if is_norm: unique_villains_norm.add(v_clean)
-                        if is_ult: unique_villains_ult.add(v_clean)
-                
-                if win: diff_wins[current_diff] += 1
-
-        # Updates UI
-        wr = (total_w/total_g)*100 if total_g > 0 else 0
-        self.lbl_agg_name.configure(text=base_name.upper())
-        self.lbl_agg_stats.configure(text=f"{total_g} JOGOS  |  {wr:.1f}% WR GERAL")
-        
-        diff_txt = f"WINS POR DIFICULDADE:  N:{diff_wins['Normal']}  |  A:{diff_wins['Advanced']}  |  C:{diff_wins['Challenge']}  |  U:{diff_wins['Ultimate']}"
-        self.lbl_diff_counts.configure(text=diff_txt)
-
-        self.build_achievements_view(base_name, total_w, unique_villains_norm, unique_villains_ult, var_stats)
-
-        def update_list(label_key, data_map):
-            txt = ""
-            sorted_items = sorted(data_map.items(), key=lambda x: x[1][1], reverse=True)
-            for name, stats in sorted_items:
-                v_wr = (stats[0]/stats[1])*100
-                txt += f"{v_wr:>5.0f}% WR | {stats[1]:>3} J | {name}\n"
-                txt += "─"*45 + "\n"
-            if not txt: txt = "Sem dados."
-            self.agg_lists_frames[label_key].configure(text=txt)
-
-        update_list("VARIANTES", var_stats)
-        update_list("VILÕES ENFRENTADOS", villain_stats)
-        update_list("AMBIENTES JOGADOS", env_stats)
 
     def calculate_global_stats(self):
         conn = sqlite3.connect('sentinels_history.db')
