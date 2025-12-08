@@ -318,7 +318,7 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.2.3")
+        self.title("Sentinels Tracker v1.3")
         self.geometry("1300x850")
         
         # Estado e Refs
