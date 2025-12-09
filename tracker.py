@@ -22,6 +22,7 @@ COLORS = {
     "rank_diamond": "#b9f2ff",  "rank_sentinel": "#a020f0",
     # Mastery
     "mastery_text": "#00e676",  # Verde XP
+    "mastery_bg": "#1b5e20",
     # Dificuldade
     "diff_challenge": "#e67e22", "diff_ultimate": "#8e44ad"
 }
@@ -31,10 +32,14 @@ FONTS = {
     "h3": ("Roboto Medium", 16),        "body": ("Roboto", 13),
     "body_bold": ("Roboto", 13, "bold"),"mono": ("Consolas", 13),
     "card_label": ("Roboto", 11, "bold"), "card_value": ("Roboto", 18, "bold"),
-    "stat_big": ("Roboto", 28, "bold"), "dashboard_row": ("Roboto Medium", 13)
+    "stat_big": ("Roboto", 28, "bold"), "dashboard_row": ("Roboto Medium", 13),
+    # Novas fontes para o detalhe de XP
+    "xp_label": ("Roboto", 13),
+    "xp_val": ("Consolas", 13, "bold"),
+    "xp_total": ("Roboto", 20, "bold")
 }
 
-# --- 2. DADOS DO JOGO ---
+# --- 2. DADOS DO JOGO (Mantidos) ---
 HEROES_DATA = {
     "Legacy": ["Base", "America's Greatest", "Young", "Freedom Five"],
     "Bunker": ["Base", "G.I.", "Freedom Five", "Termi-Nation", "Engine of War"],
@@ -87,7 +92,21 @@ HEROES_DATA = {
     "Lantern Jack": ["Base"]
 }
 
-# --- DADOS DE DIFICULDADE (XP) ---
+HERO_COMPLEXITY = {
+    "Legacy": 1, "Bunker": 2, "Wraith": 1, "Tachyon": 2, "Absolute Zero": 3,
+    "Unity": 2, "Haka": 1, "Fanatic": 2, "Tempest": 1, "Argent Adept": 3,
+    "Captain Cosmic": 2, "Expatriette": 3, "Setback": 3, "Nightmist": 3,
+    "Mr. Fixer": 2, "Harpy": 2, "Ra": 1, "Visionary": 2, "Chrono-Ranger": 1,
+    "Omnitron-X": 2, "Sky-Scraper": 2, "K.N.Y.F.E.": 1, "Parse": 3,
+    "Naturalist": 2, "Sentinels": 2, "Guise": 2, "Scholar": 2, "Stuntman": 3,
+    "Benchmark": 3, "La Comodora": 2, "Lifeline": 2, "Akash'Thriya": 3,
+    "Luminary": 2, "Doctor Medico": 2, "Idealist": 2, "Mainstay": 2,
+    "Writhe": 3, "Bowman": 2, "Captain Thunder": 2, "Daedalus": 2,
+    "Doctor Metropolis": 2, "Johnny Rocket": 2, "Lady Liberty": 2,
+    "Pseudo": 1, "Raven": 2, "Siren": 2, "Star Knight": 3,
+    "Eldritch": 2, "Lantern Jack": 2
+}
+
 SOLO_VILLAIN_DIFF = {
     "Baron Blade": 1, "Mad Bomber Blade": 2, "Citizen Dawn": 4, "Grand Warlord Voss": 3,
     "Omnitron": 1, "Cosmic Omnitron": 3, "Ambuscade": 1, "Spite": 2, "Agent of Gloom Spite": 3,
@@ -117,12 +136,10 @@ ENV_DIFF = {
     "Terminus": 2, "Sub-Terra": 2
 }
 
-# Listas usadas nos menus
 SOLO_VILLAINS_DATA = {k: ["Normal", "Advanced", "Challenge", "Ultimate"] for k in SOLO_VILLAIN_DIFF.keys()}
 SOLO_VILLAINS_DATA["OblivAeon"] = ["Normal", "Advanced"]
 TEAM_VILLAINS_LIST = sorted(list(TEAM_VILLAIN_DIFF.keys()))
 AMBIENTES = sorted(list(ENV_DIFF.keys()))
-
 
 # --- 3. BANCO DE DADOS ---
 def init_db():
@@ -138,13 +155,11 @@ def init_db():
                   game_type TEXT DEFAULT 'SOLO')''')
     try:
         c.execute("ALTER TABLE games ADD COLUMN game_type TEXT DEFAULT 'SOLO'")
-    except:
-        pass
+    except: pass
     conn.commit()
     conn.close()
 
-# --- 4. COMPONENTES VISUAIS ---
-
+# --- 4. COMPONENTES VISUAIS (SELETORES) ---
 class GridSelectionModal(ctk.CTkToplevel):
     def __init__(self, parent, title, item_list, callback, item_stats=None, style_map=None, mastery_map=None):
         super().__init__(parent)
@@ -163,48 +178,40 @@ class GridSelectionModal(ctk.CTkToplevel):
 
         for i, item_name in enumerate(item_list):
             display_text = item_name
-            btn_fg = COLORS["bg_card"]
-            btn_border = COLORS["border"]
-            btn_text_color = "white"
-            icon = ""
-            border_width = 1
+            btn_fg, btn_border, btn_text_color = COLORS["bg_card"], COLORS["border"], "white"
+            icon, border_width = "", 1
 
-            # Stats line
-            stats_line = ""
             if item_stats and item_name in item_stats:
                 stats = item_stats[item_name]
-                stats_line = f"\n🎮 {stats[0]}  |  🏆 {stats[1]:.0f}%"
+                if stats[1] > 0: # Avoid zero division in display if passed weirdly
+                    display_text = f"{item_name}\n🎮 {stats[0]}  |  🏆 {stats[1]:.0f}%"
+                else:
+                    display_text = f"{item_name}\n🎮 {stats[0]}  |  🏆 0%"
 
-            # Mastery Line
-            mastery_line = ""
             if mastery_map and item_name in mastery_map:
                 m_level, _ = mastery_map[item_name]
-                mastery_line = f"  (MR {m_level})"
+                display_text += f"\n(MR {m_level})"
 
-            # Achievements Style
             if style_map and item_name in style_map:
                 style = style_map[item_name]
                 if style.get('text_color'): btn_text_color = style['text_color']
                 if style.get('border_color'): btn_border = style['border_color']; border_width = 2
-                if style.get('icon'): icon = style['icon']
-
-            final_text = f"{item_name}{mastery_line} {icon}{stats_line}"
+                if style.get('icon'): icon = style['icon']; display_text = f"{display_text} {icon}"
 
             btn = ctk.CTkButton(
-                scroll, text=final_text, font=FONTS["body_bold"], fg_color=btn_fg,
+                scroll, text=display_text, font=FONTS["body_bold"], fg_color=btn_fg,
                 border_width=border_width, border_color=btn_border, text_color=btn_text_color,
                 hover_color=COLORS["accent"], height=60,
                 command=lambda x=item_name: self.on_select(x)
             )
             btn.grid(row=i//columns, column=i%columns, padx=5, pady=5, sticky="ew")
             
-            # Mini Barra de XP no botão
             if mastery_map and item_name in mastery_map:
                 _, xp = mastery_map[item_name]
                 prog = (xp % 1000) / 1000
                 xp_bar = ctk.CTkProgressBar(btn, height=3, width=50, progress_color=COLORS["mastery_text"])
                 xp_bar.set(prog)
-                xp_bar.place(relx=0.5, rely=0.9, anchor="center", relwidth=0.8)
+                xp_bar.place(relx=0.5, rely=0.92, anchor="center", relwidth=0.8)
 
         ctk.CTkButton(self, text="Cancelar", command=self.destroy, fg_color=COLORS["danger"]).pack(pady=10)
 
@@ -220,12 +227,10 @@ class VillainSelector(ctk.CTkFrame):
         self.selected_villain = None
         lbl = ctk.CTkLabel(self, text=f"Vilão {index}", font=("Roboto", 12, "bold"), text_color=COLORS["text_muted"], width=60)
         lbl.pack(side="left", padx=10)
-        self.btn_select = ctk.CTkButton(self, text="Selecionar...", command=self.open_grid, width=200, font=FONTS["body"],
-            fg_color="#333333", border_width=1, border_color="#555")
+        self.btn_select = ctk.CTkButton(self, text="Selecionar...", command=self.open_grid, width=200, font=FONTS["body"], fg_color="#333", border_width=1, border_color="#555")
         self.btn_select.pack(side="left", fill="x", expand=True, padx=10, pady=8)
 
     def open_grid(self):
-        # Usa self.controller ou self.winfo_toplevel() se controller for None
         parent = self.controller if self.controller else self.winfo_toplevel()
         GridSelectionModal(parent, "Selecione o Vilão", TEAM_VILLAINS_LIST, self.update_selection)
 
@@ -237,13 +242,13 @@ class VillainSelector(ctk.CTkFrame):
     def get_selection(self): return self.selected_villain
     def reset(self):
         self.selected_villain = None
-        self.btn_select.configure(text="Selecionar...", fg_color="#333333")
+        self.btn_select.configure(text="Selecionar...", fg_color="#333")
         self.configure(border_color=COLORS["border"])
 
 class HeroSelector(ctk.CTkFrame):
     def __init__(self, master, index, controller=None, **kwargs):
         super().__init__(master, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"], **kwargs)
-        self.controller = controller # Referência ao app principal
+        self.controller = controller
         self.selected_hero_name = None 
         self.selected_variant = None
         self.lbl_idx = ctk.CTkLabel(self, text=f"{index}", font=("Arial", 20, "bold"), text_color=COLORS["text_muted"], width=30)
@@ -251,23 +256,15 @@ class HeroSelector(ctk.CTkFrame):
         self.combo_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.combo_frame.pack(side="left", fill="x", expand=True, padx=5, pady=5)
         self.btn_select_hero = ctk.CTkButton(self.combo_frame, text="Selecionar Herói...", command=self.open_hero_grid, width=200, 
-            font=FONTS["body_bold"], fg_color="#333333", border_width=1, border_color="#555")
+            font=FONTS["body_bold"], fg_color="#333", border_width=1, border_color="#555")
         self.btn_select_hero.pack(pady=(0, 2), fill="x")
         self.lbl_variant = ctk.CTkLabel(self.combo_frame, text="-", font=("Roboto", 12), text_color="gray")
         self.lbl_variant.pack(pady=(2, 0))
 
     def open_hero_grid(self):
-        # Usa o controller passado no init para evitar erro de _tkinter.tkapp
         app = self.controller if self.controller else self.winfo_toplevel()
-        
-        style_map = None
-        mastery_map = None
-        # Verifica se o app tem os métodos antes de chamar
-        if hasattr(app, "get_hero_achievement_styles"):
-            style_map = app.get_hero_achievement_styles()
-        if hasattr(app, "get_hero_mastery_map"):
-            mastery_map = app.get_hero_mastery_map()
-            
+        style_map = app.get_hero_achievement_styles() if hasattr(app, "get_hero_achievement_styles") else None
+        mastery_map = app.get_hero_mastery_map() if hasattr(app, "get_hero_mastery_map") else None
         hero_names = sorted(list(HEROES_DATA.keys()))
         GridSelectionModal(app, "Selecione um Herói", hero_names, self.update_hero_selection, style_map=style_map, mastery_map=mastery_map)
 
@@ -275,16 +272,15 @@ class HeroSelector(ctk.CTkFrame):
         self.selected_hero_name = hero_name
         app = self.controller if self.controller else self.winfo_toplevel()
         text_color = "white"
+        display_text = hero_name
         
         if hasattr(app, "get_hero_achievement_styles"):
             styles = app.get_hero_achievement_styles()
             if hero_name in styles and styles[hero_name].get('text_color'): text_color = styles[hero_name]['text_color']
         
-        display_text = hero_name
         if hasattr(app, "get_hero_mastery_map"):
             m_map = app.get_hero_mastery_map()
-            if hero_name in m_map:
-                display_text = f"{hero_name} (MR {m_map[hero_name][0]})"
+            if hero_name in m_map: display_text = f"{hero_name} (MR {m_map[hero_name][0]})"
 
         self.btn_select_hero.configure(text=display_text, fg_color=COLORS["accent"], text_color=text_color)
         self.configure(border_color=COLORS["accent"])
@@ -293,7 +289,6 @@ class HeroSelector(ctk.CTkFrame):
     def open_variant_grid(self):
         if not self.selected_hero_name: return
         variants = HEROES_DATA.get(self.selected_hero_name, ["Base"])
-        # Usa o controller
         parent = self.controller if self.controller else self.winfo_toplevel()
         self.after(200, lambda: GridSelectionModal(parent, f"Variante de {self.selected_hero_name}", variants, self.update_variant_selection))
 
@@ -310,7 +305,7 @@ class HeroSelector(ctk.CTkFrame):
     def reset(self):
         self.selected_hero_name = None
         self.selected_variant = None
-        self.btn_select_hero.configure(text="Selecionar Herói...", fg_color="#333333", text_color="white")
+        self.btn_select_hero.configure(text="Selecionar Herói...", fg_color="#333", text_color="white")
         self.configure(border_color=COLORS["border"])
         self.lbl_variant.configure(text="-", text_color="gray")
 
@@ -318,7 +313,7 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.3")
+        self.title("Sentinels Tracker v1.3.1")
         self.geometry("1300x850")
         
         # Estado e Refs
@@ -326,20 +321,12 @@ class TrackerApp(ctk.CTk):
         self.selected_env = None
         self.selected_analysis_hero = None
         self.selected_villain_diff = None 
-        self.insight_labels = [] 
-        self.insight_titles = [] 
+        self.insight_labels, self.insight_titles = [], []
         self.seg_stats_mode = None
-        self.combo_variant_analysis = None
-        self.combo_diff_filter = None
-        self.dash_cards_frames = {} 
-        self.global_stat_labels = {} 
-        self.agg_lists_frames = {} 
-        self.achievements_frame = None 
-        self.mastery_labels = {} 
-        self.mastery_history_frame = None 
-        self.lbl_mastery_name = None 
-        self.lbl_agg_name = None # Inicializar para evitar erro
-        self.lbl_achieve_name = None
+        self.combo_variant_analysis, self.combo_diff_filter, self.combo_solo_mode = None, None, None
+        self.dash_cards_frames, self.global_stat_labels, self.agg_lists_frames = {}, {}, {}
+        self.achievements_frame, self.mastery_labels, self.mastery_history_frame = None, {}, None
+        self.lbl_mastery_name, self.lbl_agg_name, self.lbl_achieve_name = None, None, None
 
         self.main_container = ctk.CTkTabview(self, corner_radius=15)
         self.main_container.pack(fill="both", expand=True, padx=15, pady=15)
@@ -379,6 +366,9 @@ class TrackerApp(ctk.CTk):
         ctk.CTkLabel(self.frame_solo, text="VILÃO", font=FONTS["h3"]).pack(anchor="w", padx=20)
         self.btn_select_villain = ctk.CTkButton(self.frame_solo, text="Selecionar Vilão...", command=self.open_villain_grid, width=250, font=FONTS["body"], fg_color="#333", border_width=1, border_color="#555")
         self.btn_select_villain.pack(padx=20, pady=(5, 5), fill="x")
+        # Inicializa o combo aqui
+        self.combo_solo_mode = ctk.CTkComboBox(self.frame_solo, values=["Normal"], width=250, font=FONTS["body"])
+        
         self.lbl_villain_diff = ctk.CTkLabel(self.frame_solo, text="Modo: Normal", font=FONTS["body"], text_color="gray")
         self.lbl_villain_diff.pack(padx=20, pady=(0, 10))
         
@@ -386,7 +376,6 @@ class TrackerApp(ctk.CTk):
         ctk.CTkLabel(self.frame_team, text="TIME DE VILÕES (3-5)", font=FONTS["h3"]).pack(anchor="w", padx=20)
         self.team_selectors = []
         for i in range(5):
-            # PASSANDO CONTROLLER (SELF)
             sel = VillainSelector(self.frame_team, index=i+1, controller=self)
             sel.pack(padx=20, pady=4, fill="x")
             self.team_selectors.append(sel)
@@ -413,7 +402,6 @@ class TrackerApp(ctk.CTk):
         ctk.CTkLabel(self.right_panel, text="EQUIPE DE HERÓIS", font=FONTS["h2"]).pack(pady=(0, 15), anchor="w")
         self.hero_selectors = []
         for i in range(5):
-            # PASSANDO CONTROLLER (SELF)
             sel = HeroSelector(self.right_panel, index=i+1, controller=self)
             sel.pack(padx=0, pady=6, fill="x")
             self.hero_selectors.append(sel)
@@ -456,14 +444,9 @@ class TrackerApp(ctk.CTk):
         self.subtab_analysis = self.tab_hero_internal.add(" Análise Específica ")
         self.subtab_summary = self.tab_hero_internal.add(" Resumo do Herói ")
         self.subtab_achievements = self.tab_hero_internal.add(" Conquistas ")
-        self.subtab_mastery = self.tab_hero_internal.add(" Maestria & XP ") # NOVA ABA
+        self.subtab_mastery = self.tab_hero_internal.add(" Maestria & XP ") 
         self.subtab_global = self.tab_hero_internal.add(" Estatísticas Globais ")
-        
-        self.setup_subtab_analysis()
-        self.setup_subtab_summary()
-        self.setup_subtab_achievements()
-        self.setup_subtab_mastery() # SETUP NOVA ABA
-        self.setup_subtab_global()
+        self.setup_subtab_analysis(); self.setup_subtab_summary(); self.setup_subtab_achievements(); self.setup_subtab_mastery(); self.setup_subtab_global()
 
     def setup_subtab_analysis(self):
         self.subtab_analysis.grid_columnconfigure(0, weight=1); self.subtab_analysis.grid_columnconfigure(1, weight=3); self.subtab_analysis.grid_rowconfigure(0, weight=1)
@@ -537,50 +520,22 @@ class TrackerApp(ctk.CTk):
     def setup_subtab_achievements(self):
         self.frame_achieve_header = ctk.CTkFrame(self.subtab_achievements, corner_radius=12, fg_color=COLORS["bg_card"])
         self.frame_achieve_header.pack(fill="x", padx=20, pady=20)
-        
-        top_bar = ctk.CTkFrame(self.frame_achieve_header, fg_color="transparent")
-        top_bar.pack(fill="x", padx=20, pady=(20, 20))
-        
-        self.lbl_achieve_name = ctk.CTkLabel(top_bar, text="SELECIONE UM HERÓI", font=FONTS["h1"])
-        self.lbl_achieve_name.pack(side="left")
-        
-        self.btn_achieve_change = ctk.CTkButton(top_bar, text="Trocar Herói", command=self.open_analysis_hero_grid,
-                                            width=120, fg_color="#333", border_width=1, border_color="#555")
-        self.btn_achieve_change.pack(side="right")
-
-        self.scroll_achieve = ctk.CTkScrollableFrame(self.subtab_achievements, corner_radius=12, fg_color="transparent")
-        self.scroll_achieve.pack(fill="both", expand=True, padx=20, pady=10)
+        top = ctk.CTkFrame(self.frame_achieve_header, fg_color="transparent"); top.pack(fill="x", padx=20, pady=(20, 20))
+        self.lbl_achieve_name = ctk.CTkLabel(top, text="SELECIONE UM HERÓI", font=FONTS["h1"]); self.lbl_achieve_name.pack(side="left")
+        self.btn_achieve_change = ctk.CTkButton(top, text="Trocar Herói", command=self.open_analysis_hero_grid, width=120, fg_color="#333", border_width=1, border_color="#555"); self.btn_achieve_change.pack(side="right")
+        self.scroll_achieve = ctk.CTkScrollableFrame(self.subtab_achievements, corner_radius=12, fg_color="transparent"); self.scroll_achieve.pack(fill="both", expand=True, padx=20, pady=10)
     
-    # >>> SUB-ABA 4: MAESTRIA & XP (NOVA)
+    # >>> SUB-ABA 4: MAESTRIA & XP
     def setup_subtab_mastery(self):
-        # Header com Nível e Botão
         self.frame_mastery_header = ctk.CTkFrame(self.subtab_mastery, corner_radius=12, fg_color=COLORS["bg_card"])
         self.frame_mastery_header.pack(fill="x", padx=20, pady=20)
-
-        top_bar = ctk.CTkFrame(self.frame_mastery_header, fg_color="transparent")
-        top_bar.pack(fill="x", padx=20, pady=(20, 0))
-
-        self.lbl_mastery_name = ctk.CTkLabel(top_bar, text="SELECIONE UM HERÓI", font=FONTS["h1"])
-        self.lbl_mastery_name.pack(side="left")
-
-        self.btn_mastery_change = ctk.CTkButton(top_bar, text="Trocar Herói", command=self.open_analysis_hero_grid,
-                                            width=120, fg_color="#333", border_width=1, border_color="#555")
-        self.btn_mastery_change.pack(side="right")
-        
-        # Barra de XP Gigante
-        self.mastery_labels["bar_level"] = ctk.CTkLabel(self.frame_mastery_header, text="NÍVEL DE MAESTRIA: 0", font=("Roboto", 20, "bold"), text_color=COLORS["mastery_text"])
-        self.mastery_labels["bar_level"].pack(pady=(0, 5))
-        
-        self.mastery_xp_bar = ctk.CTkProgressBar(self.frame_mastery_header, height=25, corner_radius=12, progress_color=COLORS["mastery_text"])
-        self.mastery_xp_bar.pack(fill="x", padx=40, pady=5)
-        self.mastery_xp_bar.set(0)
-        
-        self.mastery_labels["bar_text"] = ctk.CTkLabel(self.frame_mastery_header, text="0 / 1000 XP", font=FONTS["body_bold"], text_color="gray")
-        self.mastery_labels["bar_text"].pack(pady=(0, 20))
-
-        # Lista de Histórico
-        self.mastery_history_frame = ctk.CTkScrollableFrame(self.subtab_mastery, corner_radius=12, fg_color="transparent", label_text="HISTÓRICO DE BATALHA & XP", label_font=FONTS["h3"])
-        self.mastery_history_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        top = ctk.CTkFrame(self.frame_mastery_header, fg_color="transparent"); top.pack(fill="x", padx=20, pady=(20, 0))
+        self.lbl_mastery_name = ctk.CTkLabel(top, text="SELECIONE UM HERÓI", font=FONTS["h1"]); self.lbl_mastery_name.pack(side="left")
+        self.btn_mastery_change = ctk.CTkButton(top, text="Trocar Herói", command=self.open_analysis_hero_grid, width=120, fg_color="#333", border_width=1, border_color="#555"); self.btn_mastery_change.pack(side="right")
+        self.mastery_labels["bar_level"] = ctk.CTkLabel(self.frame_mastery_header, text="NÍVEL DE MAESTRIA: 0", font=("Roboto", 20, "bold"), text_color=COLORS["mastery_text"]); self.mastery_labels["bar_level"].pack(pady=(0, 5))
+        self.mastery_xp_bar = ctk.CTkProgressBar(self.frame_mastery_header, height=25, corner_radius=12, progress_color=COLORS["mastery_text"]); self.mastery_xp_bar.pack(fill="x", padx=40, pady=5); self.mastery_xp_bar.set(0)
+        self.mastery_labels["bar_text"] = ctk.CTkLabel(self.frame_mastery_header, text="0 / 1000 XP", font=FONTS["body_bold"], text_color="gray"); self.mastery_labels["bar_text"].pack(pady=(0, 20))
+        self.mastery_history_frame = ctk.CTkScrollableFrame(self.subtab_mastery, corner_radius=12, fg_color="transparent", label_text="HISTÓRICO DE BATALHA & XP", label_font=FONTS["h3"]); self.mastery_history_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
     def create_list_column(self, col, title):
         frame = ctk.CTkFrame(self.frame_agg_content, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"])
@@ -667,7 +622,7 @@ class TrackerApp(ctk.CTk):
     def on_diff_selected(self, diff):
         self.selected_villain_diff = diff
         self.lbl_villain_diff.configure(text=f"Modo: {diff}", text_color=COLORS["highlight"])
-        self.combo_solo_mode.set(diff)
+        if self.combo_solo_mode: self.combo_solo_mode.set(diff)
 
     def open_env_grid(self): GridSelectionModal(self, "Selecionar Ambiente", AMBIENTES, self.on_env_selected)
     def on_env_selected(self, env): self.selected_env = env; self.btn_select_env.configure(text=env, fg_color=COLORS["accent"])
@@ -676,7 +631,7 @@ class TrackerApp(ctk.CTk):
         hero_stats_map = self.get_all_heroes_stats_map()
         style_map = self.get_hero_achievement_styles()
         mastery_map = self.get_hero_mastery_map()
-        sorted_heroes = sorted(list(HEROES_DATA.keys()), key=lambda x: (hero_stats_map.get(x, (0,0))[0], hero_stats_map.get(x, (0,0))[1]), reverse=True)
+        sorted_heroes = sorted(list(HEROES_DATA.keys()), key=lambda x: (mastery_map.get(x, (0,0))[0], hero_stats_map.get(x, (0,0))[0], hero_stats_map.get(x, (0,0))[1]), reverse=True)
         GridSelectionModal(self, "Analisar Herói", sorted_heroes, self.on_analysis_hero_selected, item_stats=hero_stats_map, style_map=style_map, mastery_map=mastery_map)
 
     def on_analysis_hero_selected(self, hero_name):
@@ -694,36 +649,82 @@ class TrackerApp(ctk.CTk):
         self.combo_variant_analysis.configure(values=variants, state="normal"); self.combo_variant_analysis.set("Base")
         self.display_hero_insights()
 
-    # --- MASTERY & XP LOGIC ---
-    def calculate_match_xp(self, villain_str, env, result, game_type):
-        if result != "Vitória": return 0
+    # --- XP HELPERS ---
+    def get_match_xp_breakdown(self, villain_str, env, result, game_type, heroes_str):
+        if result != "Vitória": return None
         
-        # 1. Base & Mode
-        v_xp_base, env_xp_base = 500, 75
-        is_ultimate = "(Ultimate)" in villain_str
-        is_challenge = "(Challenge)" in villain_str
-        is_advanced = "(Advanced)" in villain_str
+        # 1. Init
+        details = {
+            "v_name": villain_str,
+            "v_diff_mode": "Normal",
+            "v_base_xp": 500,
+            "team_bonus": 0,
+            "v_mult_val": 1.0,
+            "e_name": env,
+            "e_base_xp": 75,
+            "e_mult_val": 1.0,
+            "salt_val": 0,
+            "total_xp": 0,
+            "heroes_list": [],
+            "villains_list": []
+        }
+
+        # 2. Villain Difficulty
+        if "(Ultimate)" in villain_str:
+            details["v_diff_mode"] = "Ultimate"
+            details["v_base_xp"] = 1000
+            details["e_base_xp"] = 125
+        elif "(Challenge)" in villain_str:
+            details["v_diff_mode"] = "Challenge"
+            details["v_base_xp"] = 750
+            details["e_base_xp"] = 100
+        elif "(Advanced)" in villain_str:
+            details["v_diff_mode"] = "Advanced"
+            details["v_base_xp"] = 750
+            details["e_base_xp"] = 100
         
-        if is_ultimate: v_xp_base, env_xp_base = 1000, 125
-        elif is_challenge: v_xp_base, env_xp_base = 750, 100
-        elif is_advanced: v_xp_base, env_xp_base = 750, 100
-        
-        # 2. Villain Mult
-        v_mult = 1
+        # 3. Team Bonus
+        h_list = heroes_str.split(",")
+        details["heroes_list"] = h_list
+        size = len(h_list)
+        if size == 3: details["team_bonus"] = 500
+        elif size == 4: details["team_bonus"] = 200
+
+        # 4. Multipliers
+        v_diff_sum_for_salt = 0
         if game_type == "SOLO":
             v_name_clean = villain_str.split(" (")[0]
-            v_mult = SOLO_VILLAIN_DIFF.get(v_name_clean, 1)
+            details["v_mult_val"] = SOLO_VILLAIN_DIFF.get(v_name_clean, 1)
+            v_diff_sum_for_salt = details["v_mult_val"]
+            details["villains_list"] = [villain_str]
         else:
             team_members = villain_str.split(",")
+            details["villains_list"] = team_members
             total_diff = sum([TEAM_VILLAIN_DIFF.get(tm, 1) for tm in team_members])
-            count = len(team_members)
-            if count > 0: v_mult = total_diff / count
-            
-        # 3. Env Mult
-        e_mult = ENV_DIFF.get(env, 1)
+            v_diff_sum_for_salt = total_diff
+            if len(team_members) > 0:
+                details["v_mult_val"] = total_diff / len(team_members)
         
-        total_xp = (v_xp_base * v_mult) + (env_xp_base * e_mult)
-        return int(total_xp)
+        details["e_mult_val"] = ENV_DIFF.get(env, 1)
+
+        # 5. Calc
+        xp_pre_mult = details["v_base_xp"] + details["team_bonus"]
+        main_xp = (xp_pre_mult * details["v_mult_val"]) + (details["e_base_xp"] * details["e_mult_val"])
+
+        # 6. Salt
+        sum_complexity = 0
+        for h in h_list:
+            base = h.split(" (")[0]
+            sum_complexity += HERO_COMPLEXITY.get(base, 1) * 11
+        
+        details["salt_val"] = sum_complexity + details["e_mult_val"] + v_diff_sum_for_salt
+        details["total_xp"] = int(math.ceil(main_xp + details["salt_val"]))
+        
+        return details
+
+    def calculate_match_xp(self, villain_str, env, result, game_type, heroes_str):
+        data = self.get_match_xp_breakdown(villain_str, env, result, game_type, heroes_str)
+        return data["total_xp"] if data else 0
 
     def get_hero_mastery_map(self):
         conn = sqlite3.connect('sentinels_history.db')
@@ -733,7 +734,7 @@ class TrackerApp(ctk.CTk):
         conn.close()
         hero_xp = defaultdict(int)
         for h_str, v_str, env, res, g_type in rows:
-            xp = self.calculate_match_xp(v_str, env, res, g_type)
+            xp = self.calculate_match_xp(v_str, env, res, g_type, h_str)
             if xp > 0:
                 for h_full in h_str.split(","):
                     h_base = h_full.split(" (")[0]
@@ -762,11 +763,12 @@ class TrackerApp(ctk.CTk):
                 if h.split(" (")[0] == hero_name:
                     is_in_match = True
                     break
+            
             if is_in_match:
-                xp = self.calculate_match_xp(v_str, env, res, g_type)
-                total_xp += xp
-                if xp > 0:
-                    match_log.append((v_str, env, res, xp))
+                data = self.get_match_xp_breakdown(v_str, env, res, g_type, h_str)
+                if data:
+                    total_xp += data["total_xp"]
+                    match_log.append(data)
 
         m_level = total_xp // 1000
         m_curr = total_xp % 1000
@@ -774,27 +776,86 @@ class TrackerApp(ctk.CTk):
         self.mastery_labels["bar_text"].configure(text=f"{m_curr} / 1000 XP (Total: {total_xp:,})")
         self.mastery_xp_bar.set(m_curr / 1000)
 
-        for v, e, r, x in reversed(match_log):
-            row = ctk.CTkFrame(self.mastery_history_frame, fg_color=COLORS["bg_card"], corner_radius=6)
-            row.pack(fill="x", pady=2, padx=5)
-            row.grid_columnconfigure(0, weight=3)
-            row.grid_columnconfigure(1, weight=2)
-            row.grid_columnconfigure(2, weight=1)
-            ctk.CTkLabel(row, text=v, font=FONTS["body_bold"], anchor="w").grid(row=0, column=0, padx=10, pady=5, sticky="ew")
-            ctk.CTkLabel(row, text=e, font=FONTS["body"], text_color="gray", anchor="w").grid(row=0, column=1, padx=5, sticky="ew")
-            ctk.CTkLabel(row, text=f"+{x} XP", font=FONTS["body_bold"], text_color=COLORS["mastery_text"], anchor="e").grid(row=0, column=2, padx=10, sticky="ew")
+        for data in reversed(match_log):
+            self.create_history_row(data)
 
         if not match_log:
             ctk.CTkLabel(self.mastery_history_frame, text="Nenhuma partida vitoriosa registrada.", text_color="gray").pack(pady=20)
 
+    def create_history_row(self, data):
+        container = ctk.CTkFrame(self.mastery_history_frame, fg_color=COLORS["bg_card"], corner_radius=6)
+        container.pack(fill="x", pady=2, padx=5)
+
+        # Header - Usando PLACE para alinhamento absoluto
+        header = ctk.CTkFrame(container, fg_color="transparent", height=35)
+        header.pack(fill="x", padx=5, pady=5)
+        
+        # Vilão (Esquerda)
+        ctk.CTkLabel(header, text=data["v_name"], font=FONTS["body_bold"], anchor="w").place(relx=0.02, rely=0.5, anchor="w", relwidth=0.45)
+        
+        # Ambiente (Centro Absoluto)
+        ctk.CTkLabel(header, text=data["e_name"], font=FONTS["body"], text_color="gray", anchor="center").place(relx=0.5, rely=0.5, anchor="center", relwidth=0.3)
+        
+        # XP (Direita)
+        ctk.CTkLabel(header, text=f"+{data['total_xp']} XP", font=FONTS["body_bold"], text_color=COLORS["mastery_text"], anchor="e").place(relx=0.98, rely=0.5, anchor="e", relwidth=0.2)
+
+        # Detalhes (Dropdown)
+        detail = ctk.CTkFrame(container, fg_color="#1a1a1a", corner_radius=6)
+        
+        self._add_detail_row(detail, f"Vilão Base ({data['v_diff_mode']})", f"{data['v_base_xp']} XP")
+        if data['team_bonus'] > 0:
+            self._add_detail_row(detail, "Bônus de Time", f"+{data['team_bonus']} XP", COLORS["highlight"])
+        
+        mult_text = f"x{data['v_mult_val']:.2f}"
+        self._add_detail_row(detail, "Multiplicador de Dificuldade", mult_text)
+        
+        env_math = f"{data['e_base_xp']} x {data['e_mult_val']} = {data['e_base_xp']*data['e_mult_val']}"
+        self._add_detail_row(detail, f"Ambiente ({data['e_name']})", f"+{env_math} XP")
+        
+        self._add_detail_row(detail, "Adicional de Composição", f"+{data['salt_val']} XP", COLORS["warning"])
+        
+        # Separator
+        ctk.CTkFrame(detail, height=1, fg_color="#333").pack(fill="x", padx=10, pady=5)
+        
+        # Total
+        self._add_detail_row(detail, "TOTAL", f"{data['total_xp']} XP", COLORS["mastery_text"], FONTS["xp_total"])
+
+        # Participants Section
+        ctk.CTkFrame(detail, height=1, fg_color="#333").pack(fill="x", padx=10, pady=5)
+        
+        part_frame = ctk.CTkFrame(detail, fg_color="transparent")
+        part_frame.pack(fill="x", padx=15, pady=(0, 10))
+        
+        ctk.CTkLabel(part_frame, text="HERÓIS:", font=FONTS["card_label"], text_color="gray").pack(anchor="w")
+        ctk.CTkLabel(part_frame, text=", ".join(data['heroes_list']), font=FONTS["body"], text_color="white", wraplength=700, justify="left").pack(anchor="w", pady=(0, 5))
+        
+        if len(data['villains_list']) > 1:
+            ctk.CTkLabel(part_frame, text="VILÕES:", font=FONTS["card_label"], text_color="gray").pack(anchor="w")
+            ctk.CTkLabel(part_frame, text=", ".join(data['villains_list']), font=FONTS["body"], text_color="white", wraplength=700, justify="left").pack(anchor="w")
+
+        # Toggle Logic
+        def toggle(event=None):
+            if detail.winfo_ismapped(): detail.pack_forget()
+            else: detail.pack(fill="x", padx=5, pady=5)
+
+        header.bind("<Button-1>", toggle)
+        for child in header.winfo_children(): child.bind("<Button-1>", toggle)
+
+    def _add_detail_row(self, parent, label, value, val_color="white", val_font=FONTS["xp_val"]):
+        row = ctk.CTkFrame(parent, fg_color="transparent", height=20)
+        row.pack(fill="x", padx=15, pady=2)
+        ctk.CTkLabel(row, text=label, font=FONTS["xp_label"], text_color="gray", anchor="w").pack(side="left")
+        ctk.CTkLabel(row, text=value, font=val_font, text_color=val_color, anchor="e").pack(side="right")
+
     # --- ACHIEVEMENTS LOGIC ---
     def get_hero_achievement_styles(self):
+        mastery_map = self.get_hero_mastery_map()
         conn = sqlite3.connect('sentinels_history.db')
         c = conn.cursor()
         c.execute("SELECT heroes, villain, result, game_type FROM games")
         rows = c.fetchall()
         conn.close()
-        hero_wins, hero_villains_normal, hero_villains_ultimate, hero_variants_wins = defaultdict(int), defaultdict(set), defaultdict(set), defaultdict(int)
+        hero_villains_normal, hero_villains_ultimate, hero_variants_wins = defaultdict(set), defaultdict(set), defaultdict(int)
         all_villains = set(SOLO_VILLAINS_DATA.keys()) 
 
         for h_str, v_str, res, g_type in rows:
@@ -810,7 +871,6 @@ class TrackerApp(ctk.CTk):
                 else: villain_base = v_str; is_normal = True
             for h_full in h_list:
                 h_base = h_full.split(" (")[0]
-                hero_wins[h_base] += 1
                 hero_variants_wins[h_full] += 1
                 if villain_base and villain_base in all_villains:
                     if is_normal: hero_villains_normal[h_base].add(villain_base)
@@ -819,13 +879,13 @@ class TrackerApp(ctk.CTk):
         style_map = {}
         for hero in HEROES_DATA.keys():
             style = {}
-            wins = hero_wins[hero]
-            if wins >= 2500: style['text_color'] = COLORS["rank_sentinel"]
-            elif wins >= 1000: style['text_color'] = COLORS["rank_diamond"]
-            elif wins >= 500: style['text_color'] = COLORS["rank_platinum"]
-            elif wins >= 100: style['text_color'] = COLORS["rank_gold"]
-            elif wins >= 25: style['text_color'] = COLORS["rank_silver"]
-            elif wins >= 10: style['text_color'] = COLORS["rank_bronze"]
+            level = mastery_map.get(hero, (0, 0))[0]
+            if level >= 2500: style['text_color'] = COLORS["rank_sentinel"]
+            elif level >= 1000: style['text_color'] = COLORS["rank_diamond"]
+            elif level >= 500: style['text_color'] = COLORS["rank_platinum"]
+            elif level >= 100: style['text_color'] = COLORS["rank_gold"]
+            elif level >= 25: style['text_color'] = COLORS["rank_silver"]
+            elif level >= 10: style['text_color'] = COLORS["rank_bronze"]
             else: style['text_color'] = "white"
 
             defeated_norm = len(hero_villains_normal[hero])
@@ -939,6 +999,8 @@ class TrackerApp(ctk.CTk):
         unique_villains_norm = set()
         unique_villains_ult = set()
 
+        total_xp_for_mr = 0
+
         for res, h_str, v_str, env, g_type in rows:
             win = 1 if res == "Vitória" else 0
             h_list = h_str.split(",")
@@ -953,6 +1015,10 @@ class TrackerApp(ctk.CTk):
                 total_w += win; total_g += 1
                 env_stats[env][0] += win; env_stats[env][1] += 1
                 
+                # XP for Mastery
+                xp = self.calculate_match_xp(v_str, env, res, g_type, h_str)
+                total_xp_for_mr += xp
+
                 v_list = v_str.split(",") if g_type == "TEAM" else [v_str]
                 current_diff = "Normal"
                 
@@ -985,15 +1051,15 @@ class TrackerApp(ctk.CTk):
         diff_txt = f"WINS POR DIFICULDADE:  N:{diff_wins['Normal']}  |  A:{diff_wins['Advanced']}  |  C:{diff_wins['Challenge']}  |  U:{diff_wins['Ultimate']}"
         self.lbl_diff_counts.configure(text=diff_txt)
 
-        # Chama a construção das ABAS extras
-        self.build_achievements_view(base_name, total_w, unique_villains_norm, unique_villains_ult, var_stats)
+        mr = total_xp_for_mr // 1000
+        self.build_achievements_view(base_name, mr, unique_villains_norm, unique_villains_ult, var_stats)
         self.update_mastery_history_list(base_name)
 
         def update_list(label_key, data_map):
             txt = ""
             sorted_items = sorted(data_map.items(), key=lambda x: x[1][1], reverse=True)
             for name, stats in sorted_items:
-                v_wr = (stats[0]/stats[1])*100
+                v_wr = (stats[0]/stats[1])*100 if stats[1] > 0 else 0
                 txt += f"{v_wr:>5.0f}% WR | {stats[1]:>3} J | {name}\n"
                 txt += "─"*45 + "\n"
             if not txt: txt = "Sem dados."
@@ -1003,8 +1069,7 @@ class TrackerApp(ctk.CTk):
         update_list("VILÕES ENFRENTADOS", villain_stats)
         update_list("AMBIENTES JOGADOS", env_stats)
 
-    def build_achievements_view(self, hero_name, total_wins, villains_norm, villains_ult, var_stats):
-        # Limpa widgets anteriores
+    def build_achievements_view(self, hero_name, mastery_level, villains_norm, villains_ult, var_stats):
         for widget in self.scroll_achieve.winfo_children(): widget.destroy()
 
         ranks = [(10, "Bronze", COLORS["rank_bronze"]), (25, "Prata", COLORS["rank_silver"]), 
@@ -1013,13 +1078,13 @@ class TrackerApp(ctk.CTk):
         
         curr_rank, curr_color, next_goal, next_rank_name = "Sem Ranque", "gray", 10, "Bronze"
         for w, n, c in ranks:
-            if total_wins >= w: curr_rank, curr_color = n, c
+            if mastery_level >= w: curr_rank, curr_color = n, c
             else: next_goal, next_rank_name = w, n; break
         
-        prog = 1.0 if total_wins >= 2500 else total_wins / next_goal
-        disp_next = "MÁXIMO ALCANÇADO" if total_wins >= 2500 else f"Próximo: {next_rank_name}"
+        prog = 1.0 if mastery_level >= 2500 else mastery_level / next_goal
+        disp_next = "MÁXIMO ALCANÇADO" if mastery_level >= 2500 else f"Próximo: {next_rank_name}"
 
-        self.create_achievement_card("RANQUE DE HERÓI", f"Atual: {curr_rank}", total_wins, next_goal, prog, curr_color, disp_next)
+        self.create_achievement_card("RANQUE DE HERÓI (MR)", f"Atual: {curr_rank}", mastery_level, next_goal, prog, curr_color, disp_next)
 
         all_v = set(SOLO_VILLAINS_DATA.keys())
         missing_n = sorted(list(all_v - villains_norm))
@@ -1101,7 +1166,11 @@ class TrackerApp(ctk.CTk):
         if g_type == "SOLO":
             v = self.selected_villain
             if not v: return messagebox.showwarning("Atenção", "Selecione um Vilão.")
-            m = self.selected_villain_diff if self.selected_villain_diff else "Normal"
+            # Combo safety
+            if self.combo_solo_mode:
+                m = self.combo_solo_mode.get()
+            else:
+                m = self.selected_villain_diff if self.selected_villain_diff else "Normal"
             v_str = v if m == "Normal" else f"{v} ({m})"
         else:
             lst = []
@@ -1129,6 +1198,8 @@ class TrackerApp(ctk.CTk):
             self.selected_env = None; self.btn_select_env.configure(text="Selecionar Ambiente...", fg_color="#333")
             self.selected_villain = None; self.btn_select_villain.configure(text="Selecionar Vilão...", fg_color="#333")
             self.selected_villain_diff = None; self.lbl_villain_diff.configure(text="Modo: Normal", text_color="gray")
+            # Combo reset safely
+            if self.combo_solo_mode: self.combo_solo_mode.set("Normal")
             for s in self.team_selectors: s.reset()
             self.refresh_all_data()
         except Exception as e: messagebox.showerror("Erro", str(e))
