@@ -16,10 +16,21 @@ COLORS = {
     "warning": "#f39c12",       "highlight": "#4aa3df",
     "text_main": "white",       "text_muted": "gray70",
     "separator": "#444444",
-    # Achievements
-    "rank_bronze": "#cd7f32",   "rank_silver": "#c0c0c0",
-    "rank_gold": "#ffd700",     "rank_platinum": "#e5e4e2",
-    "rank_diamond": "#b9f2ff",  "rank_sentinel": "#a020f0",
+    
+    # --- CORES DE ACHIEVEMENTS (ATUALIZADAS) ---
+    "rank_bronze": "#cd7f32",   
+    "rank_silver": "#7C9B99",   
+    "rank_gold": "#ffd700",     
+    "rank_platinum": "#e5e4e2",
+    "rank_diamond": "#b9f2ff",
+    
+    # Novos Ranks
+    "rank_dark_watch": "#ff7675",      # Vermelho desbotado/Salmão escuro (Dark Watch)
+    "rank_prime": "#e1b12c",           # Laranja Dourado (Prime Wardens)
+    "rank_xtreme": "#e84118",          # Laranja/Vermelho Vibrante (XTREME)
+    "rank_freedom": "#00a8ff",         # Azul Freedom Five (com toque ciano)
+    "rank_sentinel": "#9c88ff",        # Roxo Brilhante/Neon (Sentinel Final)
+
     # Mastery
     "mastery_text": "#00e676",  # Verde XP
     "mastery_bg": "#1b5e20",
@@ -112,7 +123,7 @@ SOLO_VILLAIN_DIFF = {
     "Omnitron": 1, "Cosmic Omnitron": 3, "Ambuscade": 1, "Spite": 2, "Agent of Gloom Spite": 3,
     "Chairman": 4, "Akash'Bhuta": 2, "GloomWeaver": 1, "Skinwalker GloomWeaver": 3,
     "Matriarch": 3, "Miss Information": 4, "Plague Rat": 2, "Ennead": 3, "Apostate": 2,
-    "Iron Legacy": 4, "Kismet": 1, "Unstable Kismet": 2, "La Capitan": 2, "Dreamer": 3,
+    "Iron Legacy": 4, "Kismet": 2, "Unstable Kismet": 3, "La Capitan": 2, "Dreamer": 3,
     "Kaargra Warfang": 4, "Progeny": 4, "Deadline": 2, "Wager Master": 3, "Infinitor": 3,
     "Tormented Infinitor": 1, "Chokepoint": 1, "Argo": 2, "Meta-Mind": 2, "Hades": 2,
     "Omega": 2, "Malador": 2, "OblivAeon": 20
@@ -880,7 +891,25 @@ class TrackerApp(ctk.CTk):
         for hero in HEROES_DATA.keys():
             style = {}
             level = mastery_map.get(hero, (0, 0))[0]
-            if level >= 2500: style['text_color'] = COLORS["rank_sentinel"]
+            
+            # --- LÓGICA DE CORES E ÍCONES ATUALIZADA ---
+            icon_badge = ""
+            
+            if level >= 25000:
+                style['text_color'] = COLORS["rank_sentinel"]
+                icon_badge = "🛡" # Sentinel Shield
+            elif level >= 10000:
+                style['text_color'] = COLORS["rank_freedom"]
+                icon_badge = "🦅" # Freedom Eagle
+            elif level >= 7500:
+                style['text_color'] = COLORS["rank_xtreme"]
+                icon_badge = "⚡" # XTREME Bolt
+            elif level >= 5000:
+                style['text_color'] = COLORS["rank_prime"]
+                icon_badge = "☀" # Prime Sun
+            elif level >= 2500: 
+                style['text_color'] = COLORS["rank_dark_watch"]
+                icon_badge = "🎲" # Dark Watch Die
             elif level >= 1000: style['text_color'] = COLORS["rank_diamond"]
             elif level >= 500: style['text_color'] = COLORS["rank_platinum"]
             elif level >= 100: style['text_color'] = COLORS["rank_gold"]
@@ -896,12 +925,18 @@ class TrackerApp(ctk.CTk):
                 elif defeated_norm >= total_unique: style['border_color'] = COLORS["rank_silver"]
             
             variants = HEROES_DATA.get(hero, [])
+            star_count = 0
             if variants:
-                star_count = 0
                 for v in variants:
                     v_full = hero if v == "Base" else f"{hero} ({v})"
                     if hero_variants_wins[v_full] >= 100: star_count += 1
-                if star_count > 0: style['icon'] = "★" * star_count
+            
+            # Combina estrelas com ícone de rank
+            final_icon = ""
+            if icon_badge: final_icon += f"{icon_badge} "
+            if star_count > 0: final_icon += ("★" * star_count)
+            
+            if final_icon: style['icon'] = final_icon
 
             if style: style_map[hero] = style
         return style_map
@@ -1072,17 +1107,27 @@ class TrackerApp(ctk.CTk):
     def build_achievements_view(self, hero_name, mastery_level, villains_norm, villains_ult, var_stats):
         for widget in self.scroll_achieve.winfo_children(): widget.destroy()
 
-        ranks = [(10, "Bronze", COLORS["rank_bronze"]), (25, "Prata", COLORS["rank_silver"]), 
-                 (100, "Ouro", COLORS["rank_gold"]), (500, "Platina", COLORS["rank_platinum"]), 
-                 (1000, "Diamante", COLORS["rank_diamond"]), (2500, "SENTINEL", COLORS["rank_sentinel"])]
+        # --- RANKS E TÍTULOS ATUALIZADOS ---
+        ranks = [
+            (10, "Bronze", COLORS["rank_bronze"]), 
+            (25, "Prata", COLORS["rank_silver"]), 
+            (100, "Ouro", COLORS["rank_gold"]), 
+            (500, "Platina", COLORS["rank_platinum"]), 
+            (1000, "Diamante", COLORS["rank_diamond"]), 
+            (2500, "Dark Watch (🎲)", COLORS["rank_dark_watch"]),
+            (5000, "Prime Wardens (☀)", COLORS["rank_prime"]),
+            (7500, "XTREME PW (⚡)", COLORS["rank_xtreme"]),
+            (10000, "Freedom Five (🦅)", COLORS["rank_freedom"]),
+            (25000, "SENTINEL (🛡)", COLORS["rank_sentinel"])
+        ]
         
         curr_rank, curr_color, next_goal, next_rank_name = "Sem Ranque", "gray", 10, "Bronze"
         for w, n, c in ranks:
             if mastery_level >= w: curr_rank, curr_color = n, c
             else: next_goal, next_rank_name = w, n; break
         
-        prog = 1.0 if mastery_level >= 2500 else mastery_level / next_goal
-        disp_next = "MÁXIMO ALCANÇADO" if mastery_level >= 2500 else f"Próximo: {next_rank_name}"
+        prog = 1.0 if mastery_level >= 25000 else mastery_level / next_goal
+        disp_next = "MÁXIMO ALCANÇADO" if mastery_level >= 25000 else f"Próximo: {next_rank_name} ({next_goal} MR)"
 
         self.create_achievement_card("RANQUE DE HERÓI (MR)", f"Atual: {curr_rank}", mastery_level, next_goal, prog, curr_color, disp_next)
 
