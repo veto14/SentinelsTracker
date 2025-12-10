@@ -41,7 +41,7 @@ COLORS = {
 FONTS = {
     "h1": ("Roboto", 36, "bold"),       "h2": ("Roboto", 22, "bold"),
     "h3": ("Roboto Medium", 16),        "body": ("Roboto", 13),
-    "body_bold": ("Roboto", 13, "bold"),"mono": ("Consolas", 13),
+    "body_bold": ("Roboto", 13, "bold"),"mono": ("Roboto Medium", 10),
     "card_label": ("Roboto", 11, "bold"), "card_value": ("Roboto", 18, "bold"),
     "stat_big": ("Roboto", 28, "bold"), "dashboard_row": ("Roboto Medium", 13),
     # Novas fontes para o detalhe de XP
@@ -123,8 +123,8 @@ SOLO_VILLAIN_DIFF = {
     "Omnitron": 1, "Cosmic Omnitron": 3, "Ambuscade": 1, "Spite": 2, "Agent of Gloom Spite": 3,
     "Chairman": 4, "Akash'Bhuta": 2, "GloomWeaver": 1, "Skinwalker GloomWeaver": 3,
     "Matriarch": 3, "Miss Information": 4, "Plague Rat": 2, "Ennead": 3, "Apostate": 2,
-    "Iron Legacy": 4, "Kismet": 2, "Unstable Kismet": 3, "La Capitan": 2, "Dreamer": 3,
-    "Kaargra Warfang": 4, "Progeny": 4, "Deadline": 2, "Wager Master": 3, "Infinitor": 3,
+    "Iron Legacy": 5, "Kismet": 2, "Unstable Kismet": 3, "La Capitan": 2, "Dreamer": 3,
+    "Kaargra Warfang": 5, "Progeny": 4, "Deadline": 2, "Wager Master": 3, "Infinitor": 3,
     "Tormented Infinitor": 1, "Chokepoint": 1, "Argo": 2, "Meta-Mind": 2, "Hades": 2,
     "Omega": 2, "Malador": 2, "OblivAeon": 20
 }
@@ -148,7 +148,7 @@ ENV_DIFF = {
 }
 
 SOLO_VILLAINS_DATA = {k: ["Normal", "Advanced", "Challenge", "Ultimate"] for k in SOLO_VILLAIN_DIFF.keys()}
-SOLO_VILLAINS_DATA["OblivAeon"] = ["Normal", "Advanced"]
+SOLO_VILLAINS_DATA["OblivAeon"] = ["Normal", "Advanced","Challenge","Ultimate"]
 TEAM_VILLAINS_LIST = sorted(list(TEAM_VILLAIN_DIFF.keys()))
 AMBIENTES = sorted(list(ENV_DIFF.keys()))
 
@@ -324,7 +324,7 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.3.1")
+        self.title("Sentinels Tracker v1.3.2")
         self.geometry("1300x850")
         
         # Estado e Refs
