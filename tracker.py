@@ -148,7 +148,10 @@ ENV_DIFF = {
 }
 
 SOLO_VILLAINS_DATA = {k: ["Normal", "Advanced", "Challenge", "Ultimate"] for k in SOLO_VILLAIN_DIFF.keys()}
-SOLO_VILLAINS_DATA["OblivAeon"] = ["Normal", "Advanced","Challenge","Ultimate"]
+# [MODIFICAÇÃO] Removido OblivAeon do modo Solo, pois ele tem seu próprio modo
+if "OblivAeon" in SOLO_VILLAINS_DATA:
+    del SOLO_VILLAINS_DATA["OblivAeon"]
+
 TEAM_VILLAINS_LIST = sorted(list(TEAM_VILLAIN_DIFF.keys()))
 AMBIENTES = sorted(list(ENV_DIFF.keys()))
 
@@ -231,6 +234,107 @@ class GridSelectionModal(ctk.CTkToplevel):
         self.destroy() 
         self.callback(item_name) 
 
+# [MODIFICAÇÃO] Nova classe para seleção múltipla
+class MultiSelectionModal(ctk.CTkToplevel):
+    def __init__(self, parent, title, item_list, callback, max_selection=5):
+        super().__init__(parent)
+        self.callback = callback
+        self.max_selection = max_selection
+        self.selected_items = set()
+        self.buttons = {}
+        
+        self.title(title)
+        self.geometry("1100x700")
+        self.transient(parent)
+        self.grab_set()
+        self.focus_set()
+
+        top_frame = ctk.CTkFrame(self, fg_color="transparent")
+        top_frame.pack(fill="x", padx=20, pady=10)
+        
+        self.lbl_title = ctk.CTkLabel(top_frame, text=f"{title.upper()} (0/{max_selection})", font=FONTS["h2"])
+        self.lbl_title.pack(side="left")
+        
+        ctk.CTkButton(top_frame, text="CONFIRMAR SELEÇÃO", command=self.confirm_selection, 
+                      fg_color=COLORS["success"], font=FONTS["body_bold"]).pack(side="right")
+
+        scroll = ctk.CTkScrollableFrame(self)
+        scroll.pack(fill="both", expand=True, padx=15, pady=5)
+        columns = 4
+        for i in range(columns): scroll.grid_columnconfigure(i, weight=1)
+
+        for i, item_name in enumerate(item_list):
+            btn = ctk.CTkButton(
+                scroll, text=item_name, font=FONTS["body_bold"], 
+                fg_color=COLORS["bg_card"], border_width=1, border_color=COLORS["border"],
+                hover_color=COLORS["accent"], height=60,
+                command=lambda x=item_name: self.toggle_item(x)
+            )
+            btn.grid(row=i//columns, column=i%columns, padx=5, pady=5, sticky="ew")
+            self.buttons[item_name] = btn
+
+        ctk.CTkButton(self, text="Cancelar", command=self.destroy, fg_color=COLORS["danger"]).pack(pady=10)
+
+    def toggle_item(self, item_name):
+        if item_name in self.selected_items:
+            self.selected_items.remove(item_name)
+            self.buttons[item_name].configure(fg_color=COLORS["bg_card"], border_color=COLORS["border"])
+        else:
+            if len(self.selected_items) >= self.max_selection:
+                return
+            self.selected_items.add(item_name)
+            self.buttons[item_name].configure(fg_color=COLORS["accent"], border_color="white")
+        
+        self.lbl_title.configure(text=f"SELECIONADOS ({len(self.selected_items)}/{self.max_selection})")
+
+    def confirm_selection(self):
+        self.withdraw()
+        self.destroy()
+        self.callback(list(self.selected_items))
+
+# [MODIFICAÇÃO] Nova classe para seleção de Variantes em Lote
+class VariantAssignmentModal(ctk.CTkToplevel):
+    def __init__(self, parent, selected_heroes, callback):
+        super().__init__(parent)
+        self.callback = callback
+        self.selected_heroes = selected_heroes
+        self.variant_vars = {}
+        
+        self.title("Selecionar Variantes")
+        self.geometry("600x500")
+        self.transient(parent)
+        self.grab_set()
+        
+        ctk.CTkLabel(self, text="ESCOLHA AS VARIANTES", font=FONTS["h2"]).pack(pady=15)
+        
+        scroll = ctk.CTkScrollableFrame(self)
+        scroll.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        for hero in selected_heroes:
+            row = ctk.CTkFrame(scroll, fg_color="transparent")
+            row.pack(fill="x", pady=5)
+            ctk.CTkLabel(row, text=hero, font=FONTS["body_bold"], width=150, anchor="w").pack(side="left")
+            
+            variants = HEROES_DATA.get(hero, ["Base"])
+            combo = ctk.CTkComboBox(row, values=variants, font=FONTS["body"])
+            combo.set("Base")
+            combo.pack(side="left", fill="x", expand=True, padx=10)
+            self.variant_vars[hero] = combo
+            
+        ctk.CTkButton(self, text="CONFIRMAR EQUIPE", command=self.confirm, 
+                      fg_color=COLORS["success"], font=FONTS["body_bold"], height=40).pack(pady=20, fill="x", padx=20)
+
+    def confirm(self):
+        final_list = []
+        for hero in self.selected_heroes:
+            var = self.variant_vars[hero].get()
+            final_name = hero if var == "Base" else f"{hero} ({var})"
+            final_list.append((hero, var, final_name))
+        
+        self.withdraw()
+        self.destroy()
+        self.callback(final_list)
+
 class VillainSelector(ctk.CTkFrame):
     def __init__(self, master, index, controller=None, **kwargs):
         super().__init__(master, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"], **kwargs)
@@ -253,6 +357,31 @@ class VillainSelector(ctk.CTkFrame):
     def get_selection(self): return self.selected_villain
     def reset(self):
         self.selected_villain = None
+        self.btn_select.configure(text="Selecionar...", fg_color="#333")
+        self.configure(border_color=COLORS["border"])
+
+class EnvironmentSelector(ctk.CTkFrame):
+    def __init__(self, master, index, controller=None, **kwargs):
+        super().__init__(master, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"], **kwargs)
+        self.controller = controller
+        self.selected_env = None
+        lbl = ctk.CTkLabel(self, text=f"Ambiente {index}", font=("Roboto", 12, "bold"), text_color=COLORS["text_muted"], width=80)
+        lbl.pack(side="left", padx=10)
+        self.btn_select = ctk.CTkButton(self, text="Selecionar...", command=self.open_grid, width=200, font=FONTS["body"], fg_color="#333", border_width=1, border_color="#555")
+        self.btn_select.pack(side="left", fill="x", expand=True, padx=10, pady=8)
+
+    def open_grid(self):
+        parent = self.controller if self.controller else self.winfo_toplevel()
+        GridSelectionModal(parent, "Selecione o Ambiente", AMBIENTES, self.update_selection)
+
+    def update_selection(self, name):
+        self.selected_env = name
+        self.btn_select.configure(text=name, fg_color=COLORS["accent"])
+        self.configure(border_color=COLORS["accent"])
+
+    def get_selection(self): return self.selected_env
+    def reset(self):
+        self.selected_env = None
         self.btn_select.configure(text="Selecionar...", fg_color="#333")
         self.configure(border_color=COLORS["border"])
 
@@ -308,6 +437,28 @@ class HeroSelector(ctk.CTkFrame):
         display_text = "Base" if variant == "Base" else variant
         self.lbl_variant.configure(text=f"Var: {display_text}", text_color=COLORS["highlight"])
 
+    # Metodo auxiliar para preenchimento automatico em lote
+    def set_hero_data(self, hero_name, variant):
+        self.selected_hero_name = hero_name
+        self.selected_variant = variant
+        
+        app = self.controller if self.controller else self.winfo_toplevel()
+        text_color = "white"
+        display_text = hero_name
+        
+        if hasattr(app, "get_hero_achievement_styles"):
+            styles = app.get_hero_achievement_styles()
+            if hero_name in styles and styles[hero_name].get('text_color'): text_color = styles[hero_name]['text_color']
+        
+        if hasattr(app, "get_hero_mastery_map"):
+            m_map = app.get_hero_mastery_map()
+            if hero_name in m_map: display_text = f"{hero_name} (MR {m_map[hero_name][0]})"
+            
+        self.btn_select_hero.configure(text=display_text, fg_color=COLORS["accent"], text_color=text_color)
+        self.configure(border_color=COLORS["accent"])
+        display_v = "Base" if variant == "Base" else variant
+        self.lbl_variant.configure(text=f"Var: {display_v}", text_color=COLORS["highlight"])
+
     def get_selection(self):
         if not self.selected_hero_name: return None
         v = self.selected_variant if self.selected_variant else "Base"
@@ -338,6 +489,8 @@ class TrackerApp(ctk.CTk):
         self.dash_cards_frames, self.global_stat_labels, self.agg_lists_frames = {}, {}, {}
         self.achievements_frame, self.mastery_labels, self.mastery_history_frame = None, {}, None
         self.lbl_mastery_name, self.lbl_agg_name, self.lbl_achieve_name = None, None, None
+        
+        self.combo_oblivaeon_diff = None # Novo Ref
 
         self.main_container = ctk.CTkTabview(self, corner_radius=15)
         self.main_container.pack(fill="both", expand=True, padx=15, pady=15)
@@ -365,7 +518,7 @@ class TrackerApp(ctk.CTk):
         self.card_mode = ctk.CTkFrame(self.left_panel, corner_radius=12, fg_color=COLORS["bg_card"])
         self.card_mode.pack(fill="x", pady=(0, 15))
         ctk.CTkLabel(self.card_mode, text="MODO DE JOGO", font=FONTS["card_label"], text_color=COLORS["text_muted"]).pack(pady=(12, 5))
-        self.seg_gamemode = ctk.CTkSegmentedButton(self.card_mode, values=["Solo", "Time de Vilões"], command=self.toggle_villain_mode, font=FONTS["body_bold"], height=32)
+        self.seg_gamemode = ctk.CTkSegmentedButton(self.card_mode, values=["Solo", "Time de Vilões", "OblivAeon"], command=self.toggle_villain_mode, font=FONTS["body_bold"], height=32)
         self.seg_gamemode.set("Solo"); self.seg_gamemode.pack(pady=(0, 15), padx=20, fill="x")
 
         self.card_setup = ctk.CTkFrame(self.left_panel, corner_radius=12, fg_color=COLORS["bg_card"])
@@ -385,19 +538,46 @@ class TrackerApp(ctk.CTk):
         
         self.frame_team = ctk.CTkFrame(self.container_villain, fg_color="transparent")
         ctk.CTkLabel(self.frame_team, text="TIME DE VILÕES (3-5)", font=FONTS["h3"]).pack(anchor="w", padx=20)
+        
+        # [MODIFICAÇÃO] Botão de Multi-Seleção de Vilões
+        self.btn_multi_villain = ctk.CTkButton(self.frame_team, text="SELEÇÃO RÁPIDA (TIME)", command=self.open_multi_villain_select,
+                                               fg_color=COLORS["warning"], hover_color="#c98314", font=("Roboto", 12, "bold"))
+        self.btn_multi_villain.pack(padx=20, pady=5, fill="x")
+
         self.team_selectors = []
         for i in range(5):
             sel = VillainSelector(self.frame_team, index=i+1, controller=self)
             sel.pack(padx=20, pady=4, fill="x")
             self.team_selectors.append(sel)
+            
+        # Frame Oblivaeon (Vilão)
+        self.frame_oblivaeon_villain = ctk.CTkFrame(self.container_villain, fg_color="transparent")
+        ctk.CTkLabel(self.frame_oblivaeon_villain, text="VILÃO: OBLIVAEON", font=FONTS["h3"]).pack(anchor="w", padx=20)
+        ctk.CTkLabel(self.frame_oblivaeon_villain, text="Selecione a Dificuldade", font=FONTS["body"], text_color="gray").pack(anchor="w", padx=20, pady=(5,0))
+        self.combo_oblivaeon_diff = ctk.CTkComboBox(self.frame_oblivaeon_villain, values=["Normal", "Advanced", "Challenge", "Ultimate"], width=250, font=FONTS["body"])
+        self.combo_oblivaeon_diff.pack(padx=20, pady=10, fill="x")
+            
         self.frame_solo.pack(fill="x")
 
         ctk.CTkFrame(self.card_setup, height=1, fg_color=COLORS["separator"]).pack(fill="x", padx=20, pady=15)
         self.container_env = ctk.CTkFrame(self.card_setup, fg_color="transparent")
         self.container_env.pack(fill="x")
-        ctk.CTkLabel(self.container_env, text="AMBIENTE", font=FONTS["h3"]).pack(anchor="w", padx=20)
-        self.btn_select_env = ctk.CTkButton(self.container_env, text="Selecionar Ambiente...", command=self.open_env_grid, width=250, font=FONTS["body"], fg_color="#333", border_width=1, border_color="#555")
+        
+        # Frame Ambiente Único (Original)
+        self.frame_env_single = ctk.CTkFrame(self.container_env, fg_color="transparent")
+        ctk.CTkLabel(self.frame_env_single, text="AMBIENTE", font=FONTS["h3"]).pack(anchor="w", padx=20)
+        self.btn_select_env = ctk.CTkButton(self.frame_env_single, text="Selecionar Ambiente...", command=self.open_env_grid, width=250, font=FONTS["body"], fg_color="#333", border_width=1, border_color="#555")
         self.btn_select_env.pack(padx=20, pady=5, fill="x")
+        self.frame_env_single.pack(fill="x")
+        
+        # Frame Ambientes Oblivaeon (5)
+        self.frame_env_multi = ctk.CTkFrame(self.container_env, fg_color="transparent")
+        ctk.CTkLabel(self.frame_env_multi, text="ZONAS DE BATALHA (AMBIENTES)", font=FONTS["h3"]).pack(anchor="w", padx=20)
+        self.obliv_env_selectors = []
+        for i in range(5):
+            sel = EnvironmentSelector(self.frame_env_multi, index=i+1, controller=self)
+            sel.pack(padx=20, pady=4, fill="x")
+            self.obliv_env_selectors.append(sel)
 
         self.card_result = ctk.CTkFrame(self.left_panel, corner_radius=12, fg_color=COLORS["bg_card"])
         self.card_result.pack(fill="x", pady=(0, 15))
@@ -410,12 +590,53 @@ class TrackerApp(ctk.CTk):
 
         self.right_panel = ctk.CTkFrame(self.tab_reg, corner_radius=12, fg_color="transparent")
         self.right_panel.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-        ctk.CTkLabel(self.right_panel, text="EQUIPE DE HERÓIS", font=FONTS["h2"]).pack(pady=(0, 15), anchor="w")
+        ctk.CTkLabel(self.right_panel, text="EQUIPE DE HERÓIS", font=FONTS["h2"]).pack(pady=(0, 5), anchor="w")
+        
+        # [MODIFICAÇÃO] Botão de Multi-Seleção de Heróis
+        self.btn_multi_hero = ctk.CTkButton(self.right_panel, text="SELEÇÃO RÁPIDA (TIME)", command=self.open_multi_hero_select,
+                                            fg_color=COLORS["highlight"], hover_color="#2980b9", font=("Roboto", 12, "bold"))
+        self.btn_multi_hero.pack(pady=(0, 15), anchor="w", fill="x")
+
         self.hero_selectors = []
         for i in range(5):
             sel = HeroSelector(self.right_panel, index=i+1, controller=self)
             sel.pack(padx=0, pady=6, fill="x")
             self.hero_selectors.append(sel)
+
+    # [MODIFICAÇÃO] Lógica para Multi-Seleção de Heróis
+    def open_multi_hero_select(self):
+        hero_names = sorted(list(HEROES_DATA.keys()))
+        MultiSelectionModal(self, "Selecione o Time de Heróis", hero_names, self.on_multi_hero_selected, max_selection=5)
+
+    def on_multi_hero_selected(self, selected_list):
+        if not selected_list: return
+        VariantAssignmentModal(self, selected_list, self.on_variant_confirmed)
+
+    def on_variant_confirmed(self, hero_data_list):
+        # hero_data_list = [(Hero, Variant, FullString), ...]
+        
+        # Reseta todos primeiro
+        for sel in self.hero_selectors: sel.reset()
+        
+        # Preenche os slots
+        for i, (h, v, _) in enumerate(hero_data_list):
+            if i < len(self.hero_selectors):
+                self.hero_selectors[i].set_hero_data(h, v)
+
+    # [MODIFICAÇÃO] Lógica para Multi-Seleção de Vilões (Time)
+    def open_multi_villain_select(self):
+        MultiSelectionModal(self, "Selecione o Time de Vilões", TEAM_VILLAINS_LIST, self.on_multi_villain_selected, max_selection=5)
+
+    def on_multi_villain_selected(self, selected_list):
+        if not selected_list: return
+        
+        # Reseta todos
+        for sel in self.team_selectors: sel.reset()
+        
+        # Preenche
+        for i, v_name in enumerate(selected_list):
+            if i < len(self.team_selectors):
+                self.team_selectors[i].update_selection(v_name)
 
     # --- ABA 2: DASHBOARD ---
     def setup_overview_tab(self):
@@ -613,9 +834,21 @@ class TrackerApp(ctk.CTk):
 
     # --- LÓGICA ---
     def toggle_villain_mode(self, mode):
-        self.frame_solo.pack_forget(); self.frame_team.pack_forget()
-        if mode == "Solo": self.frame_solo.pack(fill="x")
-        else: self.frame_team.pack(fill="x")
+        self.frame_solo.pack_forget()
+        self.frame_team.pack_forget()
+        self.frame_oblivaeon_villain.pack_forget()
+        self.frame_env_single.pack_forget()
+        self.frame_env_multi.pack_forget()
+        
+        if mode == "Solo": 
+            self.frame_solo.pack(fill="x")
+            self.frame_env_single.pack(fill="x")
+        elif mode == "Time de Vilões":
+            self.frame_team.pack(fill="x")
+            self.frame_env_single.pack(fill="x")
+        elif mode == "OblivAeon":
+            self.frame_oblivaeon_villain.pack(fill="x")
+            self.frame_env_multi.pack(fill="x")
 
     def open_villain_grid(self):
         villains = sorted(list(SOLO_VILLAINS_DATA.keys()))
@@ -680,7 +913,8 @@ class TrackerApp(ctk.CTk):
             "villains_list": []
         }
 
-        # 2. Villain Difficulty
+        # 2. Villain Difficulty (Shared logic)
+        # Check diff string even if OblivAeon
         if "(Ultimate)" in villain_str:
             details["v_diff_mode"] = "Ultimate"
             details["v_base_xp"] = 1000
@@ -701,26 +935,53 @@ class TrackerApp(ctk.CTk):
         if size == 3: details["team_bonus"] = 500
         elif size == 4: details["team_bonus"] = 200
 
-        # 4. Multipliers
+        # 4. Multipliers & Main Logic
         v_diff_sum_for_salt = 0
+        total_env_xp_val = 0 # Specifically for OblivAeon
+        
         if game_type == "SOLO":
             v_name_clean = villain_str.split(" (")[0]
             details["v_mult_val"] = SOLO_VILLAIN_DIFF.get(v_name_clean, 1)
             v_diff_sum_for_salt = details["v_mult_val"]
             details["villains_list"] = [villain_str]
-        else:
+            details["e_mult_val"] = ENV_DIFF.get(env, 1)
+            
+            # Normal Env XP
+            total_env_xp_val = (details["e_base_xp"] * details["e_mult_val"])
+            
+        elif game_type == "OBLIVAEON":
+            # OblivAeon Logic
+            details["v_mult_val"] = 20 # OblivAeon Diff
+            v_diff_sum_for_salt = 20
+            details["villains_list"] = [villain_str]
+            
+            # Sum of 5 Environments
+            envs = env.split(",")
+            sum_env_mult = 0
+            current_env_total = 0
+            for e_item in envs:
+                e_mult = ENV_DIFF.get(e_item, 1)
+                sum_env_mult += e_mult
+                current_env_total += (details["e_base_xp"] * e_mult)
+            
+            total_env_xp_val = current_env_total
+            details["e_mult_val"] = sum_env_mult # For salt sum
+            details["e_name"] = "Zona de Batalha (5 Ambientes)" # Display override
+
+        else: # TEAM
             team_members = villain_str.split(",")
             details["villains_list"] = team_members
             total_diff = sum([TEAM_VILLAIN_DIFF.get(tm, 1) for tm in team_members])
             v_diff_sum_for_salt = total_diff
             if len(team_members) > 0:
                 details["v_mult_val"] = total_diff / len(team_members)
-        
-        details["e_mult_val"] = ENV_DIFF.get(env, 1)
+            
+            details["e_mult_val"] = ENV_DIFF.get(env, 1)
+            total_env_xp_val = (details["e_base_xp"] * details["e_mult_val"])
 
         # 5. Calc
         xp_pre_mult = details["v_base_xp"] + details["team_bonus"]
-        main_xp = (xp_pre_mult * details["v_mult_val"]) + (details["e_base_xp"] * details["e_mult_val"])
+        main_xp = (xp_pre_mult * details["v_mult_val"]) + total_env_xp_val
 
         # 6. Salt
         sum_complexity = 0
@@ -820,8 +1081,11 @@ class TrackerApp(ctk.CTk):
         mult_text = f"x{data['v_mult_val']:.2f}"
         self._add_detail_row(detail, "Multiplicador de Dificuldade", mult_text)
         
-        env_math = f"{data['e_base_xp']} x {data['e_mult_val']} = {data['e_base_xp']*data['e_mult_val']}"
-        self._add_detail_row(detail, f"Ambiente ({data['e_name']})", f"+{env_math} XP")
+        if data.get("e_name") == "Zona de Batalha (5 Ambientes)":
+             self._add_detail_row(detail, "Soma de Ambientes", "Calculado", COLORS["highlight"])
+        else:
+             env_math = f"{data['e_base_xp']} x {data['e_mult_val']} = {data['e_base_xp']*data['e_mult_val']}"
+             self._add_detail_row(detail, f"Ambiente", f"+{env_math} XP")
         
         self._add_detail_row(detail, "Adicional de Composição", f"+{data['salt_val']} XP", COLORS["warning"])
         
@@ -874,7 +1138,7 @@ class TrackerApp(ctk.CTk):
             if not is_win: continue
             h_list = h_str.split(",")
             villain_base, is_ultimate, is_normal = None, False, False
-            if g_type == "SOLO":
+            if g_type == "SOLO" or g_type == "OBLIVAEON":
                 if "(" in v_str:
                     villain_base = v_str.split(" (")[0]
                     if "(Ultimate)" in v_str: is_ultimate = True
@@ -985,7 +1249,7 @@ class TrackerApp(ctk.CTk):
             else:
                 if not any(target_hero_str in h for h in h_list): continue
             if difficulty != "Todos":
-                if g_type == "SOLO":
+                if g_type == "SOLO" or g_type == "OBLIVAEON":
                     is_normal = not any(x in v_str for x in ["(Advanced)", "(Challenge)", "(Ultimate)"])
                     if difficulty == "Normal" and not is_normal: continue
                     if difficulty != "Normal" and f"({difficulty})" not in v_str: continue
@@ -1061,7 +1325,7 @@ class TrackerApp(ctk.CTk):
                     v_clean = v_full
                     is_ult = False; is_norm = False
                     
-                    if g_type == "SOLO":
+                    if g_type == "SOLO" or g_type == "OBLIVAEON":
                         if "(" in v_full:
                             v_clean = v_full.split(" (")[0]
                             if "(Ultimate)" in v_full: current_diff = "Ultimate"; is_ult = True
@@ -1147,34 +1411,39 @@ class TrackerApp(ctk.CTk):
             else: miss_vars.append(f"{v} ({w}/100)")
         
         self.create_achievement_card("ESTRELAS DE VARIANTE (★)", f"Conquistou {done_vars}/{len(vars)} Estrelas", done_vars, len(vars), done_vars/len(vars) if vars else 0, COLORS["highlight"], "1 estrela por variante com 100 vitórias.", miss_vars)
-
-    def create_achievement_card(self, title, status, cur, tgt, prog, color, desc, missing=None):
-        card = ctk.CTkFrame(self.scroll_achieve, corner_radius=12, fg_color=COLORS["bg_card"], border_width=1, border_color=COLORS["border"])
+    
+    def create_achievement_card(self, title, status, val, max_val, prog_val, color, desc, missing_list=None):
+        card = ctk.CTkFrame(self.scroll_achieve, fg_color=COLORS["bg_card"], corner_radius=12, border_width=1, border_color=COLORS["border"])
         card.pack(fill="x", pady=10)
         
-        head = ctk.CTkFrame(card, fg_color="transparent")
-        head.pack(fill="x", padx=15, pady=(15, 5))
-        ctk.CTkLabel(head, text=title, font=FONTS["h3"], text_color=color).pack(side="left")
-        ctk.CTkLabel(head, text=f"{cur}/{tgt}", font=FONTS["body_bold"], text_color="gray").pack(side="right")
-
-        bar = ctk.CTkProgressBar(card, height=15, corner_radius=8)
+        top = ctk.CTkFrame(card, fg_color="transparent")
+        top.pack(fill="x", padx=15, pady=(15, 5))
+        ctk.CTkLabel(top, text=title, font=FONTS["h3"], text_color=color).pack(side="left")
+        ctk.CTkLabel(top, text=status, font=FONTS["body_bold"], text_color="white").pack(side="right")
+        
+        bar = ctk.CTkProgressBar(card, height=10, progress_color=color)
         bar.pack(fill="x", padx=15, pady=5)
-        bar.set(prog); bar.configure(progress_color=color)
+        bar.set(prog_val)
+        
+        ctk.CTkLabel(card, text=desc, font=FONTS["body"], text_color="gray").pack(anchor="w", padx=15, pady=(0, 15))
 
-        ctk.CTkLabel(card, text=desc, font=FONTS["body"], text_color="gray").pack(fill="x", padx=15, pady=(0, 10), anchor="w")
-
-        if missing:
-            det_frame = ctk.CTkFrame(card, fg_color="#222", corner_radius=8)
-            lbl_miss = ctk.CTkLabel(det_frame, text=", ".join(missing), font=FONTS["body"], text_color="gray", wraplength=800, justify="left")
+        if missing_list:
+            btn_frame = ctk.CTkFrame(card, fg_color="transparent")
+            btn_frame.pack(fill="x", padx=15, pady=(0, 10))
             
-            def toggle():
-                if det_frame.winfo_ismapped():
-                    det_frame.pack_forget(); btn.configure(text=f"Mostrar Faltantes ({len(missing)}) 🔽")
-                else:
-                    det_frame.pack(fill="x", padx=15, pady=(0, 15)); lbl_miss.pack(padx=10, pady=10, fill="x"); btn.configure(text="Ocultar Faltantes 🔼")
+            def show_missing():
+                top = ctk.CTkToplevel(self)
+                top.title(f"Faltam: {title}")
+                top.geometry("400x500")
+                top.transient(self)
+                scroll = ctk.CTkScrollableFrame(top)
+                scroll.pack(fill="both", expand=True)
+                for m in missing_list:
+                    ctk.CTkLabel(scroll, text=f"• {m}", font=FONTS["body"], anchor="w").pack(fill="x", padx=10, pady=2)
 
-            btn = ctk.CTkButton(card, text=f"Mostrar Faltantes ({len(missing)}) 🔽", command=toggle, fg_color="transparent", border_width=1, border_color=COLORS["border"], height=25, font=FONTS["body"])
-            btn.pack(padx=15, pady=(0, 15), anchor="w")
+            if len(missing_list) > 0:
+                ctk.CTkButton(btn_frame, text=f"Ver Faltantes ({len(missing_list)})", command=show_missing, height=24, 
+                              fg_color="#333", font=FONTS["body"]).pack(side="right")
 
     def calculate_global_stats(self):
         conn = sqlite3.connect('sentinels_history.db')
@@ -1204,20 +1473,27 @@ class TrackerApp(ctk.CTk):
 
     def save_game(self):
         mode = self.seg_gamemode.get()
-        g_type = "SOLO" if mode == "Solo" else "TEAM"
-        env = self.selected_env
-        if not env: return messagebox.showwarning("Atenção", "Selecione um Ambiente.")
         res = self.seg_result.get()
-        if g_type == "SOLO":
+        
+        env = None
+        g_type = "SOLO"
+        v_str = ""
+        
+        if mode == "Solo":
+            g_type = "SOLO"
+            env = self.selected_env
+            if not env: return messagebox.showwarning("Atenção", "Selecione um Ambiente.")
+            
             v = self.selected_villain
             if not v: return messagebox.showwarning("Atenção", "Selecione um Vilão.")
-            # Combo safety
-            if self.combo_solo_mode:
-                m = self.combo_solo_mode.get()
-            else:
-                m = self.selected_villain_diff if self.selected_villain_diff else "Normal"
+            m = self.selected_villain_diff if self.selected_villain_diff else "Normal"
             v_str = v if m == "Normal" else f"{v} ({m})"
-        else:
+            
+        elif mode == "Time de Vilões":
+            g_type = "TEAM"
+            env = self.selected_env
+            if not env: return messagebox.showwarning("Atenção", "Selecione um Ambiente.")
+            
             lst = []
             for sel in self.team_selectors:
                 val = sel.get_selection()
@@ -1225,12 +1501,30 @@ class TrackerApp(ctk.CTk):
             if len(lst) < 3: return messagebox.showwarning("Atenção", "Selecione 3+ vilões.")
             if len(lst) != len(set(lst)): return messagebox.showwarning("Atenção", "Vilões duplicados.")
             v_str = ",".join(lst)
+            
+        elif mode == "OblivAeon":
+            g_type = "OBLIVAEON"
+            
+            # 5 Environments
+            env_lst = []
+            for sel in self.obliv_env_selectors:
+                val = sel.get_selection()
+                if val: env_lst.append(val)
+            
+            if len(env_lst) < 5: return messagebox.showwarning("Atenção", "Selecione TODOS os 5 ambientes para o modo OblivAeon.")
+            env = ",".join(env_lst)
+            
+            # Villain is OblivAeon + Diff
+            diff = self.combo_oblivaeon_diff.get()
+            v_str = f"OblivAeon ({diff})" if diff != "Normal" else "OblivAeon"
+
         h_list = []
         for s in self.hero_selectors:
             x = s.get_selection()
             if x: h_list.append(x)
         if len(h_list) < 3: return messagebox.showwarning("Atenção", "Selecione 3+ heróis.")
         if len(set([h.split(" (")[0] for h in h_list])) != len(h_list): return messagebox.showerror("Regra do Multiverso", "Herói duplicado.")
+        
         try:
             conn = sqlite3.connect('sentinels_history.db')
             c = conn.cursor()
@@ -1239,13 +1533,18 @@ class TrackerApp(ctk.CTk):
             conn.commit()
             conn.close()
             messagebox.showinfo("Sucesso", "Partida registrada!")
+            
+            # Reset UI
             for s in self.hero_selectors: s.reset()
             self.selected_env = None; self.btn_select_env.configure(text="Selecionar Ambiente...", fg_color="#333")
             self.selected_villain = None; self.btn_select_villain.configure(text="Selecionar Vilão...", fg_color="#333")
             self.selected_villain_diff = None; self.lbl_villain_diff.configure(text="Modo: Normal", text_color="gray")
-            # Combo reset safely
             if self.combo_solo_mode: self.combo_solo_mode.set("Normal")
+            
             for s in self.team_selectors: s.reset()
+            for s in self.obliv_env_selectors: s.reset()
+            self.combo_oblivaeon_diff.set("Normal")
+            
             self.refresh_all_data()
         except Exception as e: messagebox.showerror("Erro", str(e))
 
@@ -1270,7 +1569,15 @@ class TrackerApp(ctk.CTk):
         for v_s, e, r, h_s, g_t in rows:
             w = 1 if r == "Vitória" else 0
             for h in h_s.split(","): h_stats[h][0]+=w; h_stats[h][1]+=1
-            e_stats[e][0]+=w; e_stats[e][1]+=1
+            
+            # Handle Env splitting for OblivAeon
+            if g_t == "OBLIVAEON":
+                e_list = e.split(",")
+                for ev in e_list:
+                    e_stats[ev][0]+=w; e_stats[ev][1]+=1
+            else:
+                e_stats[e][0]+=w; e_stats[e][1]+=1
+                
             v_lst = v_s.split(",") if g_t == "TEAM" else [v_s]
             for v in v_lst: v_stats[v][0]+=w; v_stats[v][1]+=1
 
@@ -1298,7 +1605,12 @@ class TrackerApp(ctk.CTk):
         update_card("env_played", top_e)
 
     def calculate_details(self):
-        mode = "SOLO" if self.seg_stats_mode and self.seg_stats_mode.get() == "Stats Solo" else "TEAM"
+        # Mapeia a seleção do botão para o tipo no DB
+        raw_mode = self.seg_stats_mode.get() if self.seg_stats_mode else "Stats Solo"
+        mode_map = {"Stats Solo": "SOLO", "Stats Time": "TEAM"} 
+        
+        mode = mode_map.get(raw_mode, "SOLO")
+        
         conn = sqlite3.connect('sentinels_history.db')
         c = conn.cursor()
         try:
