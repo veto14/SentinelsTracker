@@ -1,9 +1,11 @@
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 import sqlite3
 from datetime import datetime
 from collections import defaultdict
 import math
+import re
+import os
 
 # --- 1. SISTEMA DE DESIGN ---
 ctk.set_appearance_mode("Dark")
@@ -148,7 +150,7 @@ ENV_DIFF = {
 }
 
 SOLO_VILLAINS_DATA = {k: ["Normal", "Advanced", "Challenge", "Ultimate"] for k in SOLO_VILLAIN_DIFF.keys()}
-# [MODIFICAÇÃO] Removido OblivAeon do modo Solo, pois ele tem seu próprio modo
+# Removido OblivAeon do modo Solo
 if "OblivAeon" in SOLO_VILLAINS_DATA:
     del SOLO_VILLAINS_DATA["OblivAeon"]
 
@@ -197,7 +199,7 @@ class GridSelectionModal(ctk.CTkToplevel):
 
             if item_stats and item_name in item_stats:
                 stats = item_stats[item_name]
-                if stats[1] > 0: # Avoid zero division in display if passed weirdly
+                if stats[1] > 0: 
                     display_text = f"{item_name}\n🎮 {stats[0]}  |  🏆 {stats[1]:.0f}%"
                 else:
                     display_text = f"{item_name}\n🎮 {stats[0]}  |  🏆 0%"
@@ -234,7 +236,6 @@ class GridSelectionModal(ctk.CTkToplevel):
         self.destroy() 
         self.callback(item_name) 
 
-# [MODIFICAÇÃO] Nova classe para seleção múltipla
 class MultiSelectionModal(ctk.CTkToplevel):
     def __init__(self, parent, title, item_list, callback, max_selection=5):
         super().__init__(parent)
@@ -292,7 +293,6 @@ class MultiSelectionModal(ctk.CTkToplevel):
         self.destroy()
         self.callback(list(self.selected_items))
 
-# [MODIFICAÇÃO] Nova classe para seleção de Variantes em Lote
 class VariantAssignmentModal(ctk.CTkToplevel):
     def __init__(self, parent, selected_heroes, callback):
         super().__init__(parent)
@@ -334,6 +334,80 @@ class VariantAssignmentModal(ctk.CTkToplevel):
         self.withdraw()
         self.destroy()
         self.callback(final_list)
+
+# [MODIFICAÇÃO] Nova classe para confirmação de Importação de Log
+class LogConfirmationModal(ctk.CTkToplevel):
+    def __init__(self, parent, log_data, confirm_callback):
+        super().__init__(parent)
+        self.confirm_callback = confirm_callback
+        self.log_data = log_data
+        
+        self.title("Confirmar Importação de Log")
+        self.geometry("600x750")
+        self.transient(parent)
+        self.grab_set()
+        
+        container = ctk.CTkScrollableFrame(self)
+        container.pack(fill="both", expand=True, padx=15, pady=15)
+        
+        # Resultado Header
+        res_color = COLORS["success"] if log_data["result"] == "Vitória" else COLORS["danger"]
+        ctk.CTkLabel(container, text=log_data["result"].upper(), font=("Roboto", 30, "bold"), text_color=res_color).pack(pady=(10, 5))
+        ctk.CTkLabel(container, text="Resumo da Partida (Solo)", font=FONTS["h3"], text_color="gray").pack(pady=(0, 15))
+
+        # Vilão e Ambiente
+        self._build_info_row(container, "VILÃO", f"{log_data['villain']} ({log_data['difficulty']})")
+        self._build_info_row(container, "AMBIENTE", log_data['environment'])
+        
+        ctk.CTkFrame(container, height=2, fg_color=COLORS["separator"]).pack(fill="x", pady=15)
+        
+        # Heróis
+        ctk.CTkLabel(container, text="EQUIPE IDENTIFICADA", font=FONTS["h2"]).pack(pady=10)
+        
+        app = parent
+        style_map = app.get_hero_achievement_styles() if hasattr(app, "get_hero_achievement_styles") else None
+        mastery_map = app.get_hero_mastery_map() if hasattr(app, "get_hero_mastery_map") else None
+        
+        for h_data in log_data['heroes_data']:
+            # h_data = (HeroBase, Variant, FullString)
+            hero_base, variant, full_str = h_data
+            
+            # Estilização
+            btn_fg, btn_border, btn_text_color = COLORS["bg_card"], COLORS["border"], "white"
+            icon, border_width = "", 1
+            display_text = f"{hero_base}\n{variant}"
+            
+            if style_map and hero_base in style_map:
+                style = style_map[hero_base]
+                if style.get('text_color'): btn_text_color = style['text_color']
+                if style.get('border_color'): btn_border = style['border_color']; border_width = 2
+                if style.get('icon'): icon = style['icon']; display_text = f"{display_text} {icon}"
+            
+            if mastery_map and hero_base in mastery_map:
+                m_level, _ = mastery_map[hero_base]
+                display_text += f" (MR {m_level})"
+
+            card = ctk.CTkFrame(container, fg_color=btn_fg, border_width=border_width, border_color=btn_border, corner_radius=8)
+            card.pack(fill="x", pady=5)
+            
+            ctk.CTkLabel(card, text=display_text, font=FONTS["body_bold"], text_color=btn_text_color).pack(pady=10)
+
+        ctk.CTkFrame(container, height=2, fg_color=COLORS["separator"]).pack(fill="x", pady=15)
+        
+        ctk.CTkButton(self, text="CONFIRMAR E SALVAR PARTIDA", command=self.on_confirm, 
+                      fg_color=COLORS["success"], height=50, font=("Roboto", 14, "bold")).pack(fill="x", padx=20, pady=10)
+        ctk.CTkButton(self, text="Cancelar", command=self.destroy, fg_color=COLORS["danger"]).pack(fill="x", padx=20, pady=(0, 20))
+
+    def _build_info_row(self, parent, label, value):
+        f = ctk.CTkFrame(parent, fg_color="transparent")
+        f.pack(fill="x", pady=2)
+        ctk.CTkLabel(f, text=label, font=FONTS["card_label"], text_color="gray", width=100, anchor="w").pack(side="left")
+        ctk.CTkLabel(f, text=value, font=FONTS["body_bold"], anchor="w").pack(side="left")
+
+    def on_confirm(self):
+        self.withdraw()
+        self.destroy()
+        self.confirm_callback(self.log_data)
 
 class VillainSelector(ctk.CTkFrame):
     def __init__(self, master, index, controller=None, **kwargs):
@@ -437,7 +511,6 @@ class HeroSelector(ctk.CTkFrame):
         display_text = "Base" if variant == "Base" else variant
         self.lbl_variant.configure(text=f"Var: {display_text}", text_color=COLORS["highlight"])
 
-    # Metodo auxiliar para preenchimento automatico em lote
     def set_hero_data(self, hero_name, variant):
         self.selected_hero_name = hero_name
         self.selected_variant = variant
@@ -475,7 +548,7 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.3.2")
+        self.title("Sentinels Tracker v1.4.0")
         self.geometry("1300x850")
         
         # Estado e Refs
@@ -539,7 +612,6 @@ class TrackerApp(ctk.CTk):
         self.frame_team = ctk.CTkFrame(self.container_villain, fg_color="transparent")
         ctk.CTkLabel(self.frame_team, text="TIME DE VILÕES (3-5)", font=FONTS["h3"]).pack(anchor="w", padx=20)
         
-        # [MODIFICAÇÃO] Botão de Multi-Seleção de Vilões
         self.btn_multi_villain = ctk.CTkButton(self.frame_team, text="SELEÇÃO RÁPIDA (TIME)", command=self.open_multi_villain_select,
                                                fg_color=COLORS["warning"], hover_color="#c98314", font=("Roboto", 12, "bold"))
         self.btn_multi_villain.pack(padx=20, pady=5, fill="x")
@@ -585,6 +657,11 @@ class TrackerApp(ctk.CTk):
         self.seg_result = ctk.CTkSegmentedButton(self.card_result, values=["Vitória", "Derrota"], selected_color=COLORS["success"], selected_hover_color="#209662", font=FONTS["body_bold"], height=40)
         self.seg_result.set("Vitória"); self.seg_result.pack(pady=(0, 20), padx=20, fill="x")
 
+        # [MODIFICAÇÃO] Botão de Importar Log
+        self.btn_import_log = ctk.CTkButton(self.left_panel, text="IMPORTAR LOG (BETA)", command=self.import_log, 
+                                            fg_color=COLORS["warning"], hover_color="#c98314", font=("Roboto", 12, "bold"))
+        self.btn_import_log.pack(side="top", fill="x", pady=(5, 15))
+
         self.btn_save = ctk.CTkButton(self.left_panel, text="SALVAR DADOS DA PARTIDA", command=self.save_game, fg_color=COLORS["accent"], hover_color="#144870", height=55, font=("Roboto", 15, "bold"), corner_radius=12)
         self.btn_save.pack(side="bottom", fill="x", pady=10)
 
@@ -592,7 +669,6 @@ class TrackerApp(ctk.CTk):
         self.right_panel.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         ctk.CTkLabel(self.right_panel, text="EQUIPE DE HERÓIS", font=FONTS["h2"]).pack(pady=(0, 5), anchor="w")
         
-        # [MODIFICAÇÃO] Botão de Multi-Seleção de Heróis
         self.btn_multi_hero = ctk.CTkButton(self.right_panel, text="SELEÇÃO RÁPIDA (TIME)", command=self.open_multi_hero_select,
                                             fg_color=COLORS["highlight"], hover_color="#2980b9", font=("Roboto", 12, "bold"))
         self.btn_multi_hero.pack(pady=(0, 15), anchor="w", fill="x")
@@ -603,7 +679,138 @@ class TrackerApp(ctk.CTk):
             sel.pack(padx=0, pady=6, fill="x")
             self.hero_selectors.append(sel)
 
-    # [MODIFICAÇÃO] Lógica para Multi-Seleção de Heróis
+    # [MODIFICAÇÃO] Funções de Importação de Log
+    def import_log(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
+        if not file_path: return
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            data = self.parse_log(content)
+            if data:
+                LogConfirmationModal(self, data, self.save_imported_game)
+            else:
+                messagebox.showerror("Erro de Leitura", "Não foi possível identificar os dados da partida.")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao ler o arquivo: {str(e)}")
+
+    def parse_log(self, content):
+        # 1. Resultado
+        result = "Vitória" if "Congratulations!" in content else "Derrota"
+        
+        # 2. Dificuldade (baseado em Achievements do log fornecido)
+        difficulty = "Normal"
+        if "Base_DefeatClassicUltimate" in content: difficulty = "Ultimate"
+        elif "Base_DefeatClassicChallenge" in content: difficulty = "Challenge"
+        elif "Base_DefeatClassicAdvanced" in content: difficulty = "Advanced"
+
+        # 3. Extrair entidades (Heróis, Vilão, Ambiente)
+        # Procura por "Went from X's" para achar quem tem turnos
+        turn_takers = set(re.findall(r"Went from (.+?)'s", content))
+        
+        found_villain = None
+        found_env = None
+        found_heroes_map = [] # List of tuples (HeroBase, Variant)
+
+        # Mapeamento reverso para Vilões Solo (removendo "The ")
+        solo_v_keys = SOLO_VILLAIN_DIFF.keys() # CORRIGIDO AQUI
+        
+        # Mapeamento reverso para Ambiente
+        env_keys = ENV_DIFF.keys()
+
+        # Identificar Heróis
+        hero_keys = HEROES_DATA.keys()
+        
+        # Processa turn takers para identificar quem estava no jogo
+        for name in turn_takers:
+            # CORREÇÃO PARA "THE CHAIRMAN" e outros que começam com "The"
+            clean_name = name
+            if name.startswith("The "):
+                clean_name = name[4:]
+
+            # Check Villain (Tenta com "The" e sem "The")
+            if name in solo_v_keys:
+                found_villain = name
+                continue
+            elif clean_name in solo_v_keys:
+                found_villain = clean_name
+                continue
+                
+            # Check Env (Tenta com "The" e sem "The")
+            if name in env_keys:
+                found_env = name
+                continue
+            elif clean_name in env_keys:
+                found_env = clean_name
+                continue
+                
+            # Check Heroes
+            for h_key in hero_keys:
+                if h_key in name:
+                    # Achou a chave do herói no nome (Ex: "Tachyon" em "Freedom Six Tachyon")
+                    # Tenta deduzir variante
+                    variant = "Base"
+                    possible_variants = HEROES_DATA[h_key]
+                    
+                    # Procura substrings de variantes conhecidas no nome do log
+                    # Ex: "Freedom Six" em "Freedom Six Tachyon" -> variant "Team Leader (Freedom Six)"
+                    if name != h_key:
+                        for v in possible_variants:
+                            # Remove parenteses da variante interna para comparar (Ex: "Team Leader (Freedom Six)" -> "Freedom Six")
+                            v_clean = v
+                            if "(" in v:
+                                v_clean = v.split("(")[1].replace(")", "")
+                            
+                            if v_clean in name or v in name:
+                                variant = v
+                                break
+                                
+                    found_heroes_map.append((h_key, variant, f"{h_key} ({variant})" if variant != "Base" else h_key))
+                    break
+        
+        # Remove duplicatas de heróis (preservando variante se achada)
+        unique_heroes = {}
+        for h, v, f in found_heroes_map:
+            unique_heroes[h] = (h, v, f)
+        
+        if not found_villain or not found_env or not unique_heroes:
+            return None
+
+        return {
+            "result": result,
+            "difficulty": difficulty,
+            "villain": found_villain,
+            "environment": found_env,
+            "heroes_data": list(unique_heroes.values())
+        }
+
+    def save_imported_game(self, data):
+        # Salva diretamente no DB
+        try:
+            conn = sqlite3.connect('sentinels_history.db')
+            c = conn.cursor()
+            dt = datetime.now().strftime("%Y-%m-%d %H:%M")
+            
+            # Formata vilão com dificuldade
+            v_str = data["villain"]
+            if data["difficulty"] != "Normal":
+                v_str = f"{data['villain']} ({data['difficulty']})"
+            
+            # Formata heróis
+            h_list = [x[2] for x in data["heroes_data"]]
+            
+            c.execute("INSERT INTO games (date, villain, environment, result, heroes, game_type) VALUES (?, ?, ?, ?, ?, ?)", 
+                      (dt, v_str, data["environment"], data["result"], ",".join(h_list), "SOLO"))
+            conn.commit()
+            conn.close()
+            messagebox.showinfo("Sucesso", "Partida importada e salva com sucesso!")
+            self.refresh_all_data()
+            
+        except Exception as e:
+            messagebox.showerror("Erro ao Salvar", str(e))
+
     def open_multi_hero_select(self):
         hero_names = sorted(list(HEROES_DATA.keys()))
         MultiSelectionModal(self, "Selecione o Time de Heróis", hero_names, self.on_multi_hero_selected, max_selection=5)
@@ -613,27 +820,17 @@ class TrackerApp(ctk.CTk):
         VariantAssignmentModal(self, selected_list, self.on_variant_confirmed)
 
     def on_variant_confirmed(self, hero_data_list):
-        # hero_data_list = [(Hero, Variant, FullString), ...]
-        
-        # Reseta todos primeiro
         for sel in self.hero_selectors: sel.reset()
-        
-        # Preenche os slots
         for i, (h, v, _) in enumerate(hero_data_list):
             if i < len(self.hero_selectors):
                 self.hero_selectors[i].set_hero_data(h, v)
 
-    # [MODIFICAÇÃO] Lógica para Multi-Seleção de Vilões (Time)
     def open_multi_villain_select(self):
         MultiSelectionModal(self, "Selecione o Time de Vilões", TEAM_VILLAINS_LIST, self.on_multi_villain_selected, max_selection=5)
 
     def on_multi_villain_selected(self, selected_list):
         if not selected_list: return
-        
-        # Reseta todos
         for sel in self.team_selectors: sel.reset()
-        
-        # Preenche
         for i, v_name in enumerate(selected_list):
             if i < len(self.team_selectors):
                 self.team_selectors[i].update_selection(v_name)
