@@ -19,7 +19,7 @@ COLORS = {
     "text_main": "white",       "text_muted": "gray70",
     "separator": "#444444",
     
-    # --- CORES DE ACHIEVEMENTS (ATUALIZADAS) ---
+    # --- CORES DE ACHIEVEMENTS ---
     "rank_bronze": "#cd7f32",   
     "rank_silver": "#7C9B99",   
     "rank_gold": "#ffd700",     
@@ -27,14 +27,14 @@ COLORS = {
     "rank_diamond": "#b9f2ff",
     
     # Novos Ranks
-    "rank_dark_watch": "#ff7675",      # Vermelho desbotado/Salmão escuro (Dark Watch)
-    "rank_prime": "#e1b12c",           # Laranja Dourado (Prime Wardens)
-    "rank_xtreme": "#e84118",          # Laranja/Vermelho Vibrante (XTREME)
-    "rank_freedom": "#00a8ff",         # Azul Freedom Five (com toque ciano)
-    "rank_sentinel": "#9c88ff",        # Roxo Brilhante/Neon (Sentinel Final)
+    "rank_dark_watch": "#ff7675",
+    "rank_prime": "#e1b12c",
+    "rank_xtreme": "#e84118",
+    "rank_freedom": "#00a8ff",
+    "rank_sentinel": "#9c88ff",
 
     # Mastery
-    "mastery_text": "#00e676",  # Verde XP
+    "mastery_text": "#00e676",
     "mastery_bg": "#1b5e20",
     # Dificuldade
     "diff_challenge": "#e67e22", "diff_ultimate": "#8e44ad"
@@ -46,13 +46,12 @@ FONTS = {
     "body_bold": ("Roboto", 13, "bold"),"mono": ("Roboto Medium", 10),
     "card_label": ("Roboto", 11, "bold"), "card_value": ("Roboto", 18, "bold"),
     "stat_big": ("Roboto", 28, "bold"), "dashboard_row": ("Roboto Medium", 13),
-    # Novas fontes para o detalhe de XP
     "xp_label": ("Roboto", 13),
     "xp_val": ("Consolas", 13, "bold"),
     "xp_total": ("Roboto", 20, "bold")
 }
 
-# --- 2. DADOS DO JOGO (Mantidos) ---
+# --- 2. DADOS DO JOGO ---
 HEROES_DATA = {
     "Legacy": ["Base", "America's Greatest", "Young", "Freedom Five"],
     "Bunker": ["Base", "G.I.", "Freedom Five", "Termi-Nation", "Engine of War"],
@@ -150,7 +149,6 @@ ENV_DIFF = {
 }
 
 SOLO_VILLAINS_DATA = {k: ["Normal", "Advanced", "Challenge", "Ultimate"] for k in SOLO_VILLAIN_DIFF.keys()}
-# Removido OblivAeon do modo Solo
 if "OblivAeon" in SOLO_VILLAINS_DATA:
     del SOLO_VILLAINS_DATA["OblivAeon"]
 
@@ -335,7 +333,6 @@ class VariantAssignmentModal(ctk.CTkToplevel):
         self.destroy()
         self.callback(final_list)
 
-# [MODIFICAÇÃO] Nova classe para confirmação de Importação de Log
 class LogConfirmationModal(ctk.CTkToplevel):
     def __init__(self, parent, log_data, confirm_callback):
         super().__init__(parent)
@@ -350,18 +347,15 @@ class LogConfirmationModal(ctk.CTkToplevel):
         container = ctk.CTkScrollableFrame(self)
         container.pack(fill="both", expand=True, padx=15, pady=15)
         
-        # Resultado Header
         res_color = COLORS["success"] if log_data["result"] == "Vitória" else COLORS["danger"]
         ctk.CTkLabel(container, text=log_data["result"].upper(), font=("Roboto", 30, "bold"), text_color=res_color).pack(pady=(10, 5))
         ctk.CTkLabel(container, text="Resumo da Partida (Solo)", font=FONTS["h3"], text_color="gray").pack(pady=(0, 15))
 
-        # Vilão e Ambiente
         self._build_info_row(container, "VILÃO", f"{log_data['villain']} ({log_data['difficulty']})")
         self._build_info_row(container, "AMBIENTE", log_data['environment'])
         
         ctk.CTkFrame(container, height=2, fg_color=COLORS["separator"]).pack(fill="x", pady=15)
         
-        # Heróis
         ctk.CTkLabel(container, text="EQUIPE IDENTIFICADA", font=FONTS["h2"]).pack(pady=10)
         
         app = parent
@@ -369,10 +363,7 @@ class LogConfirmationModal(ctk.CTkToplevel):
         mastery_map = app.get_hero_mastery_map() if hasattr(app, "get_hero_mastery_map") else None
         
         for h_data in log_data['heroes_data']:
-            # h_data = (HeroBase, Variant, FullString)
             hero_base, variant, full_str = h_data
-            
-            # Estilização
             btn_fg, btn_border, btn_text_color = COLORS["bg_card"], COLORS["border"], "white"
             icon, border_width = "", 1
             display_text = f"{hero_base}\n{variant}"
@@ -548,10 +539,9 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.4.0")
+        self.title("Sentinels Tracker v1.4.1")
         self.geometry("1300x850")
         
-        # Estado e Refs
         self.selected_villain = None
         self.selected_env = None
         self.selected_analysis_hero = None
@@ -563,7 +553,7 @@ class TrackerApp(ctk.CTk):
         self.achievements_frame, self.mastery_labels, self.mastery_history_frame = None, {}, None
         self.lbl_mastery_name, self.lbl_agg_name, self.lbl_achieve_name = None, None, None
         
-        self.combo_oblivaeon_diff = None # Novo Ref
+        self.combo_oblivaeon_diff = None 
 
         self.main_container = ctk.CTkTabview(self, corner_radius=15)
         self.main_container.pack(fill="both", expand=True, padx=15, pady=15)
@@ -603,7 +593,6 @@ class TrackerApp(ctk.CTk):
         ctk.CTkLabel(self.frame_solo, text="VILÃO", font=FONTS["h3"]).pack(anchor="w", padx=20)
         self.btn_select_villain = ctk.CTkButton(self.frame_solo, text="Selecionar Vilão...", command=self.open_villain_grid, width=250, font=FONTS["body"], fg_color="#333", border_width=1, border_color="#555")
         self.btn_select_villain.pack(padx=20, pady=(5, 5), fill="x")
-        # Inicializa o combo aqui
         self.combo_solo_mode = ctk.CTkComboBox(self.frame_solo, values=["Normal"], width=250, font=FONTS["body"])
         
         self.lbl_villain_diff = ctk.CTkLabel(self.frame_solo, text="Modo: Normal", font=FONTS["body"], text_color="gray")
@@ -622,7 +611,6 @@ class TrackerApp(ctk.CTk):
             sel.pack(padx=20, pady=4, fill="x")
             self.team_selectors.append(sel)
             
-        # Frame Oblivaeon (Vilão)
         self.frame_oblivaeon_villain = ctk.CTkFrame(self.container_villain, fg_color="transparent")
         ctk.CTkLabel(self.frame_oblivaeon_villain, text="VILÃO: OBLIVAEON", font=FONTS["h3"]).pack(anchor="w", padx=20)
         ctk.CTkLabel(self.frame_oblivaeon_villain, text="Selecione a Dificuldade", font=FONTS["body"], text_color="gray").pack(anchor="w", padx=20, pady=(5,0))
@@ -635,14 +623,12 @@ class TrackerApp(ctk.CTk):
         self.container_env = ctk.CTkFrame(self.card_setup, fg_color="transparent")
         self.container_env.pack(fill="x")
         
-        # Frame Ambiente Único (Original)
         self.frame_env_single = ctk.CTkFrame(self.container_env, fg_color="transparent")
         ctk.CTkLabel(self.frame_env_single, text="AMBIENTE", font=FONTS["h3"]).pack(anchor="w", padx=20)
         self.btn_select_env = ctk.CTkButton(self.frame_env_single, text="Selecionar Ambiente...", command=self.open_env_grid, width=250, font=FONTS["body"], fg_color="#333", border_width=1, border_color="#555")
         self.btn_select_env.pack(padx=20, pady=5, fill="x")
         self.frame_env_single.pack(fill="x")
         
-        # Frame Ambientes Oblivaeon (5)
         self.frame_env_multi = ctk.CTkFrame(self.container_env, fg_color="transparent")
         ctk.CTkLabel(self.frame_env_multi, text="ZONAS DE BATALHA (AMBIENTES)", font=FONTS["h3"]).pack(anchor="w", padx=20)
         self.obliv_env_selectors = []
@@ -657,7 +643,6 @@ class TrackerApp(ctk.CTk):
         self.seg_result = ctk.CTkSegmentedButton(self.card_result, values=["Vitória", "Derrota"], selected_color=COLORS["success"], selected_hover_color="#209662", font=FONTS["body_bold"], height=40)
         self.seg_result.set("Vitória"); self.seg_result.pack(pady=(0, 20), padx=20, fill="x")
 
-        # [MODIFICAÇÃO] Botão de Importar Log
         self.btn_import_log = ctk.CTkButton(self.left_panel, text="IMPORTAR LOG (BETA)", command=self.import_log, 
                                             fg_color=COLORS["warning"], hover_color="#c98314", font=("Roboto", 12, "bold"))
         self.btn_import_log.pack(side="top", fill="x", pady=(5, 15))
@@ -679,7 +664,6 @@ class TrackerApp(ctk.CTk):
             sel.pack(padx=0, pady=6, fill="x")
             self.hero_selectors.append(sel)
 
-    # [MODIFICAÇÃO] Funções de Importação de Log
     def import_log(self):
         file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
         if not file_path: return
@@ -697,85 +681,79 @@ class TrackerApp(ctk.CTk):
             messagebox.showerror("Erro", f"Falha ao ler o arquivo: {str(e)}")
 
     def parse_log(self, content):
-        # 1. Resultado
         result = "Vitória" if "Congratulations!" in content else "Derrota"
         
-        # 2. Dificuldade (baseado em Achievements do log fornecido)
         difficulty = "Normal"
         if "Base_DefeatClassicUltimate" in content: difficulty = "Ultimate"
         elif "Base_DefeatClassicChallenge" in content: difficulty = "Challenge"
         elif "Base_DefeatClassicAdvanced" in content: difficulty = "Advanced"
 
-        # 3. Extrair entidades (Heróis, Vilão, Ambiente)
-        # Procura por "Went from X's" para achar quem tem turnos
         turn_takers = set(re.findall(r"Went from (.+?)'s", content))
         
         found_villain = None
         found_env = None
-        found_heroes_map = [] # List of tuples (HeroBase, Variant)
-
-        # Mapeamento reverso para Vilões Solo (removendo "The ")
-        solo_v_keys = SOLO_VILLAIN_DIFF.keys() # CORRIGIDO AQUI
         
-        # Mapeamento reverso para Ambiente
+        # Mapeamentos para identificação
+        solo_v_keys = SOLO_VILLAIN_DIFF.keys()
         env_keys = ENV_DIFF.keys()
-
-        # Identificar Heróis
-        hero_keys = HEROES_DATA.keys()
         
-        # Processa turn takers para identificar quem estava no jogo
+        # 1. ORDENAR POR TAMANHO PARA EVITAR FALSO POSITIVO (ex: achar Ra em Chrono-Ranger)
+        # Importante: Chaves maiores primeiro!
+        hero_keys = sorted(HEROES_DATA.keys(), key=len, reverse=True)
+        
+        # Identificação de Vilão e Ambiente via Turnos
         for name in turn_takers:
-            # CORREÇÃO PARA "THE CHAIRMAN" e outros que começam com "The"
             clean_name = name
-            if name.startswith("The "):
-                clean_name = name[4:]
+            if name.startswith("The "): clean_name = name[4:]
 
-            # Check Villain (Tenta com "The" e sem "The")
-            if name in solo_v_keys:
-                found_villain = name
-                continue
-            elif clean_name in solo_v_keys:
-                found_villain = clean_name
-                continue
-                
-            # Check Env (Tenta com "The" e sem "The")
-            if name in env_keys:
-                found_env = name
-                continue
-            elif clean_name in env_keys:
-                found_env = clean_name
-                continue
-                
-            # Check Heroes
+            if name in solo_v_keys: found_villain = name; continue
+            elif clean_name in solo_v_keys: found_villain = clean_name; continue
+            
+            if name in env_keys: found_env = name; continue
+            elif clean_name in env_keys: found_env = clean_name; continue
+
+        # Identificação de Heróis (Com Prioridade de Tamanho e Regex Boundary)
+        detected_heroes = []
+        for name in turn_takers:
+            # Pula se for vilão ou ambiente
+            if name == found_villain or name == found_env: continue
+            if found_villain and name in found_villain: continue
+            if found_env and name in found_env: continue
+
+            matched_this_turn = False
             for h_key in hero_keys:
-                if h_key in name:
-                    # Achou a chave do herói no nome (Ex: "Tachyon" em "Freedom Six Tachyon")
-                    # Tenta deduzir variante
-                    variant = "Base"
-                    possible_variants = HEROES_DATA[h_key]
-                    
-                    # Procura substrings de variantes conhecidas no nome do log
-                    # Ex: "Freedom Six" em "Freedom Six Tachyon" -> variant "Team Leader (Freedom Six)"
-                    if name != h_key:
-                        for v in possible_variants:
-                            # Remove parenteses da variante interna para comparar (Ex: "Team Leader (Freedom Six)" -> "Freedom Six")
-                            v_clean = v
-                            if "(" in v:
-                                v_clean = v.split("(")[1].replace(")", "")
-                            
-                            if v_clean in name or v in name:
-                                variant = v
-                                break
-                                
-                    found_heroes_map.append((h_key, variant, f"{h_key} ({variant})" if variant != "Base" else h_key))
-                    break
+                # Regex procura a palavra exata do herói (evita "Ra" em "Terra")
+                # (?i) ignora case, \b é boundary
+                pattern = r"(?i)\b" + re.escape(h_key) + r"\b"
+                if re.search(pattern, name):
+                    if h_key not in detected_heroes:
+                        detected_heroes.append(h_key)
+                    matched_this_turn = True
+                    break # Parar de procurar nessa string específica para não achar "Ra" se já achou "Chrono-Ranger"
         
-        # Remove duplicatas de heróis (preservando variante se achada)
-        unique_heroes = {}
-        for h, v, f in found_heroes_map:
-            unique_heroes[h] = (h, v, f)
-        
-        if not found_villain or not found_env or not unique_heroes:
+        # Detectar Variantes (Varrendo o texto inteiro do log)
+        final_heroes_data = []
+        for h in detected_heroes:
+            variant = "Base"
+            possible_vars = HEROES_DATA.get(h, ["Base"])
+            
+            for v in possible_vars:
+                if v == "Base": continue
+                
+                # Prepara termo de busca (remove parenteses ex: "Freedom Six" de "Team Leader (Freedom Six)")
+                search_term = v
+                if "(" in v:
+                    search_term = v.split("(")[1].replace(")", "")
+                
+                # Busca no LOG INTEIRO se essa variante foi mencionada
+                if search_term in content:
+                    variant = v
+                    break # Prioridade para a primeira variante encontrada na lista (assumindo exclusividade)
+            
+            full_str = f"{h} ({variant})" if variant != "Base" else h
+            final_heroes_data.append((h, variant, full_str))
+
+        if not found_villain or not found_env or not final_heroes_data:
             return None
 
         return {
@@ -783,22 +761,19 @@ class TrackerApp(ctk.CTk):
             "difficulty": difficulty,
             "villain": found_villain,
             "environment": found_env,
-            "heroes_data": list(unique_heroes.values())
+            "heroes_data": final_heroes_data
         }
 
     def save_imported_game(self, data):
-        # Salva diretamente no DB
         try:
             conn = sqlite3.connect('sentinels_history.db')
             c = conn.cursor()
             dt = datetime.now().strftime("%Y-%m-%d %H:%M")
             
-            # Formata vilão com dificuldade
             v_str = data["villain"]
             if data["difficulty"] != "Normal":
                 v_str = f"{data['villain']} ({data['difficulty']})"
             
-            # Formata heróis
             h_list = [x[2] for x in data["heroes_data"]]
             
             c.execute("INSERT INTO games (date, villain, environment, result, heroes, game_type) VALUES (?, ?, ?, ?, ?, ?)", 
@@ -835,7 +810,6 @@ class TrackerApp(ctk.CTk):
             if i < len(self.team_selectors):
                 self.team_selectors[i].update_selection(v_name)
 
-    # --- ABA 2: DASHBOARD ---
     def setup_overview_tab(self):
         self.frame_total = ctk.CTkFrame(self.tab_overview, fg_color="transparent")
         self.frame_total.pack(fill="x", pady=20, padx=20)
@@ -866,7 +840,6 @@ class TrackerApp(ctk.CTk):
         self.dash_cards_frames[key_id] = content_frame
         return frame
 
-    # --- ABA 3: HERÓIS ---
     def setup_hero_tab_structure(self):
         self.tab_hero_internal = ctk.CTkTabview(self.tab_heroes)
         self.tab_hero_internal.pack(fill="both", expand=True, padx=10, pady=10)
@@ -913,7 +886,6 @@ class TrackerApp(ctk.CTk):
             lbl_c.pack(fill="x", padx=10, pady=(10, 20))
             self.insight_labels.append(lbl_c)
 
-    # >>> SUB-ABA 2: RESUMO DO HERÓI
     def setup_subtab_summary(self):
         self.frame_agg_header = ctk.CTkFrame(self.subtab_summary, corner_radius=12, fg_color=COLORS["bg_card"])
         self.frame_agg_header.pack(fill="x", padx=20, pady=20)
@@ -945,7 +917,6 @@ class TrackerApp(ctk.CTk):
         self.scroll_agg_vils = self.create_list_column(1, "VILÕES ENFRENTADOS")
         self.scroll_agg_envs = self.create_list_column(2, "AMBIENTES JOGADOS")
 
-    # >>> SUB-ABA 3: CONQUISTAS
     def setup_subtab_achievements(self):
         self.frame_achieve_header = ctk.CTkFrame(self.subtab_achievements, corner_radius=12, fg_color=COLORS["bg_card"])
         self.frame_achieve_header.pack(fill="x", padx=20, pady=20)
@@ -954,7 +925,6 @@ class TrackerApp(ctk.CTk):
         self.btn_achieve_change = ctk.CTkButton(top, text="Trocar Herói", command=self.open_analysis_hero_grid, width=120, fg_color="#333", border_width=1, border_color="#555"); self.btn_achieve_change.pack(side="right")
         self.scroll_achieve = ctk.CTkScrollableFrame(self.subtab_achievements, corner_radius=12, fg_color="transparent"); self.scroll_achieve.pack(fill="both", expand=True, padx=20, pady=10)
     
-    # >>> SUB-ABA 4: MAESTRIA & XP
     def setup_subtab_mastery(self):
         self.frame_mastery_header = ctk.CTkFrame(self.subtab_mastery, corner_radius=12, fg_color=COLORS["bg_card"])
         self.frame_mastery_header.pack(fill="x", padx=20, pady=20)
@@ -1029,7 +999,6 @@ class TrackerApp(ctk.CTk):
         lbl.pack(anchor="w")
         return lbl
 
-    # --- LÓGICA ---
     def toggle_villain_mode(self, mode):
         self.frame_solo.pack_forget()
         self.frame_team.pack_forget()
@@ -1080,7 +1049,6 @@ class TrackerApp(ctk.CTk):
         self.btn_select_analysis_hero.configure(text=hero_name, fg_color=COLORS["accent"])
         self.update_hero_variants_analysis(hero_name)
         self.calculate_aggregate_hero_stats(hero_name)
-        # Update Titles
         self.lbl_agg_name.configure(text=hero_name.upper())
         self.lbl_achieve_name.configure(text=hero_name.upper())
         self.lbl_mastery_name.configure(text=hero_name.upper())
@@ -1094,7 +1062,6 @@ class TrackerApp(ctk.CTk):
     def get_match_xp_breakdown(self, villain_str, env, result, game_type, heroes_str):
         if result != "Vitória": return None
         
-        # 1. Init
         details = {
             "v_name": villain_str,
             "v_diff_mode": "Normal",
@@ -1110,8 +1077,6 @@ class TrackerApp(ctk.CTk):
             "villains_list": []
         }
 
-        # 2. Villain Difficulty (Shared logic)
-        # Check diff string even if OblivAeon
         if "(Ultimate)" in villain_str:
             details["v_diff_mode"] = "Ultimate"
             details["v_base_xp"] = 1000
@@ -1125,16 +1090,14 @@ class TrackerApp(ctk.CTk):
             details["v_base_xp"] = 750
             details["e_base_xp"] = 100
         
-        # 3. Team Bonus
         h_list = heroes_str.split(",")
         details["heroes_list"] = h_list
         size = len(h_list)
         if size == 3: details["team_bonus"] = 500
         elif size == 4: details["team_bonus"] = 200
 
-        # 4. Multipliers & Main Logic
         v_diff_sum_for_salt = 0
-        total_env_xp_val = 0 # Specifically for OblivAeon
+        total_env_xp_val = 0 
         
         if game_type == "SOLO":
             v_name_clean = villain_str.split(" (")[0]
@@ -1142,17 +1105,13 @@ class TrackerApp(ctk.CTk):
             v_diff_sum_for_salt = details["v_mult_val"]
             details["villains_list"] = [villain_str]
             details["e_mult_val"] = ENV_DIFF.get(env, 1)
-            
-            # Normal Env XP
             total_env_xp_val = (details["e_base_xp"] * details["e_mult_val"])
             
         elif game_type == "OBLIVAEON":
-            # OblivAeon Logic
-            details["v_mult_val"] = 20 # OblivAeon Diff
+            details["v_mult_val"] = 20 
             v_diff_sum_for_salt = 20
             details["villains_list"] = [villain_str]
             
-            # Sum of 5 Environments
             envs = env.split(",")
             sum_env_mult = 0
             current_env_total = 0
@@ -1162,10 +1121,10 @@ class TrackerApp(ctk.CTk):
                 current_env_total += (details["e_base_xp"] * e_mult)
             
             total_env_xp_val = current_env_total
-            details["e_mult_val"] = sum_env_mult # For salt sum
-            details["e_name"] = "Zona de Batalha (5 Ambientes)" # Display override
+            details["e_mult_val"] = sum_env_mult 
+            details["e_name"] = "Zona de Batalha (5 Ambientes)" 
 
-        else: # TEAM
+        else: 
             team_members = villain_str.split(",")
             details["villains_list"] = team_members
             total_diff = sum([TEAM_VILLAIN_DIFF.get(tm, 1) for tm in team_members])
@@ -1176,11 +1135,9 @@ class TrackerApp(ctk.CTk):
             details["e_mult_val"] = ENV_DIFF.get(env, 1)
             total_env_xp_val = (details["e_base_xp"] * details["e_mult_val"])
 
-        # 5. Calc
         xp_pre_mult = details["v_base_xp"] + details["team_bonus"]
         main_xp = (xp_pre_mult * details["v_mult_val"]) + total_env_xp_val
 
-        # 6. Salt
         sum_complexity = 0
         for h in h_list:
             base = h.split(" (")[0]
@@ -1255,20 +1212,13 @@ class TrackerApp(ctk.CTk):
         container = ctk.CTkFrame(self.mastery_history_frame, fg_color=COLORS["bg_card"], corner_radius=6)
         container.pack(fill="x", pady=2, padx=5)
 
-        # Header - Usando PLACE para alinhamento absoluto
         header = ctk.CTkFrame(container, fg_color="transparent", height=35)
         header.pack(fill="x", padx=5, pady=5)
         
-        # Vilão (Esquerda)
         ctk.CTkLabel(header, text=data["v_name"], font=FONTS["body_bold"], anchor="w").place(relx=0.02, rely=0.5, anchor="w", relwidth=0.45)
-        
-        # Ambiente (Centro Absoluto)
         ctk.CTkLabel(header, text=data["e_name"], font=FONTS["body"], text_color="gray", anchor="center").place(relx=0.5, rely=0.5, anchor="center", relwidth=0.3)
-        
-        # XP (Direita)
         ctk.CTkLabel(header, text=f"+{data['total_xp']} XP", font=FONTS["body_bold"], text_color=COLORS["mastery_text"], anchor="e").place(relx=0.98, rely=0.5, anchor="e", relwidth=0.2)
 
-        # Detalhes (Dropdown)
         detail = ctk.CTkFrame(container, fg_color="#1a1a1a", corner_radius=6)
         
         self._add_detail_row(detail, f"Vilão Base ({data['v_diff_mode']})", f"{data['v_base_xp']} XP")
@@ -1286,13 +1236,9 @@ class TrackerApp(ctk.CTk):
         
         self._add_detail_row(detail, "Adicional de Composição", f"+{data['salt_val']} XP", COLORS["warning"])
         
-        # Separator
         ctk.CTkFrame(detail, height=1, fg_color="#333").pack(fill="x", padx=10, pady=5)
-        
-        # Total
         self._add_detail_row(detail, "TOTAL", f"{data['total_xp']} XP", COLORS["mastery_text"], FONTS["xp_total"])
 
-        # Participants Section
         ctk.CTkFrame(detail, height=1, fg_color="#333").pack(fill="x", padx=10, pady=5)
         
         part_frame = ctk.CTkFrame(detail, fg_color="transparent")
@@ -1305,7 +1251,6 @@ class TrackerApp(ctk.CTk):
             ctk.CTkLabel(part_frame, text="VILÕES:", font=FONTS["card_label"], text_color="gray").pack(anchor="w")
             ctk.CTkLabel(part_frame, text=", ".join(data['villains_list']), font=FONTS["body"], text_color="white", wraplength=700, justify="left").pack(anchor="w")
 
-        # Toggle Logic
         def toggle(event=None):
             if detail.winfo_ismapped(): detail.pack_forget()
             else: detail.pack(fill="x", padx=5, pady=5)
@@ -1319,7 +1264,6 @@ class TrackerApp(ctk.CTk):
         ctk.CTkLabel(row, text=label, font=FONTS["xp_label"], text_color="gray", anchor="w").pack(side="left")
         ctk.CTkLabel(row, text=value, font=val_font, text_color=val_color, anchor="e").pack(side="right")
 
-    # --- ACHIEVEMENTS LOGIC ---
     def get_hero_achievement_styles(self):
         mastery_map = self.get_hero_mastery_map()
         conn = sqlite3.connect('sentinels_history.db')
@@ -1353,24 +1297,23 @@ class TrackerApp(ctk.CTk):
             style = {}
             level = mastery_map.get(hero, (0, 0))[0]
             
-            # --- LÓGICA DE CORES E ÍCONES ATUALIZADA ---
             icon_badge = ""
             
             if level >= 25000:
                 style['text_color'] = COLORS["rank_sentinel"]
-                icon_badge = "🛡" # Sentinel Shield
+                icon_badge = "🛡" 
             elif level >= 10000:
                 style['text_color'] = COLORS["rank_freedom"]
-                icon_badge = "🦅" # Freedom Eagle
+                icon_badge = "🦅" 
             elif level >= 7500:
                 style['text_color'] = COLORS["rank_xtreme"]
-                icon_badge = "⚡" # XTREME Bolt
+                icon_badge = "⚡" 
             elif level >= 5000:
                 style['text_color'] = COLORS["rank_prime"]
-                icon_badge = "☀" # Prime Sun
+                icon_badge = "☀" 
             elif level >= 2500: 
                 style['text_color'] = COLORS["rank_dark_watch"]
-                icon_badge = "🎲" # Dark Watch Die
+                icon_badge = "🎲" 
             elif level >= 1000: style['text_color'] = COLORS["rank_diamond"]
             elif level >= 500: style['text_color'] = COLORS["rank_platinum"]
             elif level >= 100: style['text_color'] = COLORS["rank_gold"]
@@ -1392,7 +1335,6 @@ class TrackerApp(ctk.CTk):
                     v_full = hero if v == "Base" else f"{hero} ({v})"
                     if hero_variants_wins[v_full] >= 100: star_count += 1
             
-            # Combina estrelas com ícone de rank
             final_icon = ""
             if icon_badge: final_icon += f"{icon_badge} "
             if star_count > 0: final_icon += ("★" * star_count)
@@ -1511,7 +1453,6 @@ class TrackerApp(ctk.CTk):
                 total_w += win; total_g += 1
                 env_stats[env][0] += win; env_stats[env][1] += 1
                 
-                # XP for Mastery
                 xp = self.calculate_match_xp(v_str, env, res, g_type, h_str)
                 total_xp_for_mr += xp
 
@@ -1568,7 +1509,6 @@ class TrackerApp(ctk.CTk):
     def build_achievements_view(self, hero_name, mastery_level, villains_norm, villains_ult, var_stats):
         for widget in self.scroll_achieve.winfo_children(): widget.destroy()
 
-        # --- RANKS E TÍTULOS ATUALIZADOS ---
         ranks = [
             (10, "Bronze", COLORS["rank_bronze"]), 
             (25, "Prata", COLORS["rank_silver"]), 
@@ -1702,7 +1642,6 @@ class TrackerApp(ctk.CTk):
         elif mode == "OblivAeon":
             g_type = "OBLIVAEON"
             
-            # 5 Environments
             env_lst = []
             for sel in self.obliv_env_selectors:
                 val = sel.get_selection()
@@ -1711,7 +1650,6 @@ class TrackerApp(ctk.CTk):
             if len(env_lst) < 5: return messagebox.showwarning("Atenção", "Selecione TODOS os 5 ambientes para o modo OblivAeon.")
             env = ",".join(env_lst)
             
-            # Villain is OblivAeon + Diff
             diff = self.combo_oblivaeon_diff.get()
             v_str = f"OblivAeon ({diff})" if diff != "Normal" else "OblivAeon"
 
@@ -1731,7 +1669,6 @@ class TrackerApp(ctk.CTk):
             conn.close()
             messagebox.showinfo("Sucesso", "Partida registrada!")
             
-            # Reset UI
             for s in self.hero_selectors: s.reset()
             self.selected_env = None; self.btn_select_env.configure(text="Selecionar Ambiente...", fg_color="#333")
             self.selected_villain = None; self.btn_select_villain.configure(text="Selecionar Vilão...", fg_color="#333")
@@ -1767,7 +1704,6 @@ class TrackerApp(ctk.CTk):
             w = 1 if r == "Vitória" else 0
             for h in h_s.split(","): h_stats[h][0]+=w; h_stats[h][1]+=1
             
-            # Handle Env splitting for OblivAeon
             if g_t == "OBLIVAEON":
                 e_list = e.split(",")
                 for ev in e_list:
@@ -1802,7 +1738,6 @@ class TrackerApp(ctk.CTk):
         update_card("env_played", top_e)
 
     def calculate_details(self):
-        # Mapeia a seleção do botão para o tipo no DB
         raw_mode = self.seg_stats_mode.get() if self.seg_stats_mode else "Stats Solo"
         mode_map = {"Stats Solo": "SOLO", "Stats Time": "TEAM"} 
         
