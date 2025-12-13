@@ -354,7 +354,7 @@ class LogConfirmationModal(ctk.CTkToplevel):
         self._build_info_row(container, "VILÃO", f"{log_data['villain']} ({log_data['difficulty']})")
         self._build_info_row(container, "AMBIENTE", log_data['environment'])
         
-        ctk.CTkFrame(container, height=2, fg_color=COLORS["separator"]).pack(fill="x", pady=15)
+        ctk.CTkFrame(container, height=2, fg_color=COLORS["separator"]).pack(fill="x", padx=20, pady=15)
         
         ctk.CTkLabel(container, text="EQUIPE IDENTIFICADA", font=FONTS["h2"]).pack(pady=10)
         
@@ -724,7 +724,12 @@ class TrackerApp(ctk.CTk):
             for h_key in hero_keys:
                 # Regex procura a palavra exata do herói (evita "Ra" em "Terra")
                 # (?i) ignora case, \b é boundary
-                pattern = r"(?i)\b" + re.escape(h_key) + r"\b"
+                
+                # CORRECAO: K.N.Y.F.E. termina em ponto, entao \b falha logo apos ele
+                suffix_boundary = r"\b" if h_key[-1].isalnum() else ""
+                
+                pattern = r"(?i)\b" + re.escape(h_key) + suffix_boundary
+                
                 if re.search(pattern, name):
                     if h_key not in detected_heroes:
                         detected_heroes.append(h_key)
