@@ -539,7 +539,7 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.4.1")
+        self.title("Sentinels Tracker v1.4.3")
         self.geometry("1300x850")
         
         self.selected_villain = None
@@ -663,6 +663,13 @@ class TrackerApp(ctk.CTk):
             sel = HeroSelector(self.right_panel, index=i+1, controller=self)
             sel.pack(padx=0, pady=6, fill="x")
             self.hero_selectors.append(sel)
+
+        # --- ÁREA DE NOTIFICAÇÃO PÓS-JOGO ---
+        self.lbl_notification = ctk.CTkLabel(self.right_panel, text="RESUMO DE PROGRESSO", font=FONTS["card_label"], text_color=COLORS["text_muted"])
+        self.lbl_notification.pack(pady=(20, 5), anchor="w")
+        self.results_panel = ctk.CTkScrollableFrame(self.right_panel, corner_radius=12, fg_color=COLORS["bg_card"], height=200)
+        self.results_panel.pack(fill="both", expand=True, pady=5)
+        ctk.CTkLabel(self.results_panel, text="Aguardando partida...", text_color="gray", font=FONTS["body"]).pack(pady=20)
 
     def import_log(self):
         file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
@@ -1613,6 +1620,46 @@ class TrackerApp(ctk.CTk):
         self.global_stat_labels["diff_challenge"].configure(text=str(diff_counts["Challenge"]))
         self.global_stat_labels["diff_ultimate"].configure(text=str(diff_counts["Ultimate"]))
 
+    def get_rank_name(self, level):
+        if level >= 25000: return "SENTINEL"
+        if level >= 10000: return "Freedom Five"
+        if level >= 7500: return "XTREME PW"
+        if level >= 5000: return "Prime Wardens"
+        if level >= 2500: return "Dark Watch"
+        if level >= 1000: return "Diamante"
+        if level >= 500: return "Platina"
+        if level >= 100: return "Ouro"
+        if level >= 25: return "Prata"
+        if level >= 10: return "Bronze"
+        return "Sem Ranque"
+
+    def display_game_results(self, hero_names, pre_map, post_map):
+        for widget in self.results_panel.winfo_children(): widget.destroy()
+        
+        has_news = False
+        
+        for h in hero_names:
+            h_base = h.split(" (")[0]
+            
+            old_level = pre_map.get(h_base, (0,0))[0]
+            new_level = post_map.get(h_base, (0,0))[0]
+            
+            old_rank = self.get_rank_name(old_level)
+            new_rank = self.get_rank_name(new_level)
+            
+            if new_level > old_level:
+                has_news = True
+                ctk.CTkLabel(self.results_panel, text=f"{h_base}: MR {old_level} ➜ {new_level}", 
+                             font=FONTS["body_bold"], text_color=COLORS["success"]).pack(pady=2, anchor="w")
+                
+            if new_rank != old_rank:
+                has_news = True
+                ctk.CTkLabel(self.results_panel, text=f"{h_base} PROMOVIDO PARA {new_rank.upper()}!", 
+                             font=FONTS["card_label"], text_color=COLORS["rank_gold"]).pack(pady=(5, 5), anchor="w")
+
+        if not has_news:
+            ctk.CTkLabel(self.results_panel, text="Partida registrada. Sem alterações de nível.", text_color="gray").pack(pady=20)
+
     def save_game(self):
         mode = self.seg_gamemode.get()
         res = self.seg_result.get()
@@ -1666,12 +1713,21 @@ class TrackerApp(ctk.CTk):
         if len(set([h.split(" (")[0] for h in h_list])) != len(h_list): return messagebox.showerror("Regra do Multiverso", "Herói duplicado.")
         
         try:
+            # 1. CAPTURAR ESTADO ATUAL (XP)
+            pre_save_mastery = self.get_hero_mastery_map()
+
+            # 2. SALVAR NO DB
             conn = sqlite3.connect('sentinels_history.db')
             c = conn.cursor()
             dt = datetime.now().strftime("%Y-%m-%d %H:%M")
             c.execute("INSERT INTO games (date, villain, environment, result, heroes, game_type) VALUES (?, ?, ?, ?, ?, ?)", (dt, v_str, env, res, ",".join(h_list), g_type))
             conn.commit()
             conn.close()
+            
+            # 3. CAPTURAR NOVO ESTADO E MOSTRAR DIFERENÇA
+            post_save_mastery = self.get_hero_mastery_map()
+            self.display_game_results(h_list, pre_save_mastery, post_save_mastery)
+
             messagebox.showinfo("Sucesso", "Partida registrada!")
             
             for s in self.hero_selectors: s.reset()
