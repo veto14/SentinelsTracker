@@ -599,7 +599,7 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.4.5")
+        self.title("Sentinels Tracker v1.4.6")
         self.geometry("1300x850")
         
         self.selected_villain = None
@@ -1531,7 +1531,10 @@ class TrackerApp(ctk.CTk):
             win = 1 if res == "Vitória" else 0
             wins_list.append(win); e_stats[env] += 1
             v_list = v_str.split(",") if g_type == "TEAM" else [v_str]
-            for v in v_list: v_stats[v][0] += win; v_stats[v][1] += 1
+            for v in v_list: 
+                if g_type == "TEAM" and v in ["Baron Blade", "La Capitan", "Plague Rat", "Miss Information", "Ambuscade"]:
+                    v = f"{v} (Team)"
+                v_stats[v][0] += win; v_stats[v][1] += 1
             for h in h_str.split(","):
                 if h != target_hero_str: t_stats[h] += 1
         valid_vs = [x for x in v_stats.items() if x[1][1] >= 1]
@@ -1600,6 +1603,9 @@ class TrackerApp(ctk.CTk):
                             else: is_norm = True 
                         else: is_norm = True
                     
+                    if g_type == "TEAM" and v_clean in ["Baron Blade", "La Capitan", "Plague Rat", "Miss Information", "Ambuscade"]:
+                        v_clean = f"{v_clean} (Team)"
+
                     villain_stats[v_clean][0] += win
                     villain_stats[v_clean][1] += 1
                     
@@ -1889,7 +1895,10 @@ class TrackerApp(ctk.CTk):
                 e_stats[e][0]+=w; e_stats[e][1]+=1
                 
             v_lst = v_s.split(",") if g_t == "TEAM" else [v_s]
-            for v in v_lst: v_stats[v][0]+=w; v_stats[v][1]+=1
+            for v in v_lst:
+                if g_t == "TEAM" and v in ["Baron Blade", "La Capitan", "Plague Rat", "Miss Information", "Ambuscade"]:
+                    v = f"{v} (Team)"
+                v_stats[v][0]+=w; v_stats[v][1]+=1
 
         def update_card(card_id, data_list, is_wr=False):
             frame = self.dash_cards_frames[card_id]
@@ -1938,7 +1947,10 @@ class TrackerApp(ctk.CTk):
             for x in hl: sh[x][0]+=w; sh[x][1]+=1
             ss[len(hl)][0]+=w; ss[len(hl)][1]+=1
             vl = v.split(",") if mode=="TEAM" else [v]
-            for x in vl: sv[x][0]+=w; sv[x][1]+=1
+            for x in vl: 
+                if mode == "TEAM" and x in ["Baron Blade", "La Capitan", "Plague Rat", "Miss Information", "Ambuscade"]:
+                    x = f"{x} (Team)"
+                sv[x][0]+=w; sv[x][1]+=1
         def f(d, sk=False):
             l = sorted(d.items(), key=lambda x: x[0] if sk else x[1][1], reverse=not sk)
             t = ""
