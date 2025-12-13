@@ -400,6 +400,34 @@ class LogConfirmationModal(ctk.CTkToplevel):
         self.destroy()
         self.confirm_callback(self.log_data)
 
+class LogTypeSelectionModal(ctk.CTkToplevel):
+    def __init__(self, parent, sp_path, mp_path, callback):
+        super().__init__(parent)
+        self.callback = callback
+        self.sp_path = sp_path
+        self.mp_path = mp_path
+        
+        self.title("Logs Encontrados")
+        self.geometry("600x400")
+        self.transient(parent)
+        self.grab_set()
+        
+        ctk.CTkLabel(self, text="MÚLTIPLOS LOGS ENCONTRADOS", font=FONTS["h2"]).pack(pady=(25, 15))
+        ctk.CTkLabel(self, text="Qual log você deseja carregar?", font=FONTS["body"], text_color="gray").pack(pady=(0, 25))
+        
+        ctk.CTkButton(self, text="Log Singleplayer (log.txt)", command=lambda: self.select(self.sp_path),
+                      height=60, font=FONTS["body_bold"], fg_color=COLORS["accent"], border_width=1).pack(fill="x", padx=40, pady=10)
+        
+        ctk.CTkButton(self, text="Log Multiplayer (multiplayer-log.txt)", command=lambda: self.select(self.mp_path),
+                      height=60, font=FONTS["body_bold"], fg_color=COLORS["warning"], border_width=1).pack(fill="x", padx=40, pady=10)
+        
+        ctk.CTkButton(self, text="Cancelar", command=self.destroy, fg_color="transparent", border_width=1, border_color=COLORS["border"]).pack(pady=20)
+
+    def select(self, path):
+        self.withdraw()
+        self.destroy()
+        self.callback(path)
+
 class VillainSelector(ctk.CTkFrame):
     def __init__(self, master, index, controller=None, **kwargs):
         super().__init__(master, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"], **kwargs)
@@ -539,7 +567,7 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.4.3")
+        self.title("Sentinels Tracker v1.4.4")
         self.geometry("1300x850")
         
         self.selected_villain = None
@@ -672,9 +700,31 @@ class TrackerApp(ctk.CTk):
         ctk.CTkLabel(self.results_panel, text="Aguardando partida...", text_color="gray", font=FONTS["body"]).pack(pady=20)
 
     def import_log(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
-        if not file_path: return
+        # Caminho base do jogo
+        base_path = os.path.expanduser(r"~\AppData\LocalLow\Handelabra Games Inc_\Sentinels")
         
+        sp_log_path = os.path.join(base_path, "log.txt")
+        mp_log_path = os.path.join(base_path, "multiplayer-log.txt")
+        
+        has_sp = os.path.exists(sp_log_path)
+        has_mp = os.path.exists(mp_log_path)
+        
+        if has_sp and has_mp:
+            # Abre modal para escolher
+            LogTypeSelectionModal(self, sp_log_path, mp_log_path, self.process_log_file)
+        elif has_sp:
+            self.process_log_file(sp_log_path)
+        elif has_mp:
+            self.process_log_file(mp_log_path)
+        else:
+            # Fallback para busca manual se não encontrar no diretório padrão
+            resp = messagebox.askyesno("Log não encontrado", "Não foi possível encontrar logs no diretório padrão.\nDeseja procurar o arquivo manualmente?")
+            if resp:
+                file_path = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
+                if file_path:
+                    self.process_log_file(file_path)
+
+    def process_log_file(self, file_path):
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -778,6 +828,9 @@ class TrackerApp(ctk.CTk):
 
     def save_imported_game(self, data):
         try:
+            # 1. CAPTURAR ESTADO ATUAL (XP)
+            pre_save_mastery = self.get_hero_mastery_map()
+
             conn = sqlite3.connect('sentinels_history.db')
             c = conn.cursor()
             dt = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -792,6 +845,11 @@ class TrackerApp(ctk.CTk):
                       (dt, v_str, data["environment"], data["result"], ",".join(h_list), "SOLO"))
             conn.commit()
             conn.close()
+
+            # 2. CAPTURAR NOVO ESTADO E MOSTRAR DIFERENÇA
+            post_save_mastery = self.get_hero_mastery_map()
+            self.display_game_results(h_list, pre_save_mastery, post_save_mastery)
+
             messagebox.showinfo("Sucesso", "Partida importada e salva com sucesso!")
             self.refresh_all_data()
             
