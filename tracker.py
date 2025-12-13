@@ -350,9 +350,11 @@ class LogConfirmationModal(ctk.CTkToplevel):
         
         res_color = COLORS["success"] if log_data["result"] == "Vitória" else COLORS["danger"]
         ctk.CTkLabel(self.container, text=log_data["result"].upper(), font=("Roboto", 30, "bold"), text_color=res_color).pack(pady=(10, 5))
-        ctk.CTkLabel(self.container, text="Resumo da Partida (Solo)", font=FONTS["h3"], text_color="gray").pack(pady=(0, 15))
+        
+        mode_text = "Modo: Time de Vilões" if log_data.get("game_type") == "TEAM" else "Modo: Solo/Clássico"
+        ctk.CTkLabel(self.container, text=mode_text, font=FONTS["h3"], text_color="gray").pack(pady=(0, 15))
 
-        self._build_info_row(self.container, "VILÃO", f"{log_data['villain']} ({log_data['difficulty']})")
+        self._build_info_row(self.container, "VILÃO(ÕES)", f"{log_data['villain']} ({log_data['difficulty']})")
         self._build_info_row(self.container, "AMBIENTE", log_data['environment'])
         
         ctk.CTkFrame(self.container, height=2, fg_color=COLORS["separator"]).pack(fill="x", padx=20, pady=15)
@@ -375,7 +377,9 @@ class LogConfirmationModal(ctk.CTkToplevel):
         f = ctk.CTkFrame(parent, fg_color="transparent")
         f.pack(fill="x", pady=2)
         ctk.CTkLabel(f, text=label, font=FONTS["card_label"], text_color="gray", width=100, anchor="w").pack(side="left")
-        ctk.CTkLabel(f, text=value, font=FONTS["body_bold"], anchor="w").pack(side="left")
+        
+        # Wrap text if villain list is too long
+        ctk.CTkLabel(f, text=value, font=FONTS["body_bold"], anchor="w", wraplength=400, justify="left").pack(side="left")
 
     def render_heroes_list(self):
         for widget in self.heroes_list_frame.winfo_children():
@@ -766,7 +770,10 @@ class TrackerApp(ctk.CTk):
             messagebox.showerror("Erro", f"Falha ao ler o arquivo: {str(e)}")
 
     def parse_log(self, content):
-        result = "Vitória" if "Congratulations!" in content else "Derrota"
+        # 1. Result Check
+        result = "Derrota"
+        if "Congratulations!" in content or "All villain team members have been defeated!" in content:
+            result = "Vitória"
         
         difficulty = "Normal"
         if "Base_DefeatClassicUltimate" in content: difficulty = "Ultimate"
@@ -775,33 +782,58 @@ class TrackerApp(ctk.CTk):
 
         turn_takers = set(re.findall(r"Went from (.+?)'s", content))
         
-        found_villain = None
-        found_env = None
-        
         # Mapeamentos para identificação
         solo_v_keys = SOLO_VILLAIN_DIFF.keys()
+        team_v_keys = TEAM_VILLAIN_DIFF.keys()
         env_keys = ENV_DIFF.keys()
-        
-        # 1. ORDENAR POR TAMANHO PARA EVITAR FALSO POSITIVO
         hero_keys = sorted(HEROES_DATA.keys(), key=len, reverse=True)
+        
+        found_solo_villain = None
+        found_team_villains = set()
+        found_env = None
         
         # Identificação de Vilão e Ambiente via Turnos
         for name in turn_takers:
             clean_name = name
             if name.startswith("The "): clean_name = name[4:]
 
-            if name in solo_v_keys: found_villain = name; continue
-            elif clean_name in solo_v_keys: found_villain = clean_name; continue
+            if name in env_keys: found_env = name
+            elif clean_name in env_keys: found_env = clean_name
             
-            if name in env_keys: found_env = name; continue
-            elif clean_name in env_keys: found_env = clean_name; continue
+            # Checagem de Time de Vilão
+            if name in team_v_keys: found_team_villains.add(name)
+            elif clean_name in team_v_keys: found_team_villains.add(clean_name)
+
+            # Checagem de Solo Villain
+            if name in solo_v_keys: found_solo_villain = name
+            elif clean_name in solo_v_keys: found_solo_villain = clean_name
+
+        # Determine Game Type
+        game_type = "SOLO"
+        final_villain_str = ""
+        
+        if "OblivAeon" in content:
+            game_type = "OBLIVAEON"
+            final_villain_str = "OblivAeon"
+        elif len(found_team_villains) >= 3: 
+            # Se encontrou 3+ vilões de time, assume modo TEAM
+            game_type = "TEAM"
+            final_villain_str = ",".join(sorted(list(found_team_villains)))
+        else:
+            if found_solo_villain:
+                final_villain_str = found_solo_villain
+            elif found_team_villains:
+                # Fallback raro
+                final_villain_str = list(found_team_villains)[0]
 
         # Identificação de Heróis
         detected_heroes = []
         for name in turn_takers:
-            if name == found_villain or name == found_env: continue
-            if found_villain and name in found_villain: continue
+            # Pula se for vilão identificado ou ambiente
+            if name == found_solo_villain or name == found_env: continue
+            if found_solo_villain and name in found_solo_villain: continue
             if found_env and name in found_env: continue
+            if name in found_team_villains: continue
 
             matched_this_turn = False
             for h_key in hero_keys:
@@ -814,7 +846,7 @@ class TrackerApp(ctk.CTk):
                     matched_this_turn = True
                     break 
         
-        # Detectar Variantes (Correção do BUG Heroic Luminary)
+        # Detectar Variantes
         final_heroes_data = []
         for h in detected_heroes:
             variant = "Base"
@@ -826,15 +858,12 @@ class TrackerApp(ctk.CTk):
                 search_terms = []
                 if "(" in v:
                     parts = v.split("(")
-                    # 1. Termo interno: "Heroic (Ivana)" -> "Ivana"
                     search_terms.append(parts[1].replace(")", "").strip())
-                    # 2. Termo prefixo: "Heroic (Ivana)" -> "Heroic"
                     prefix = parts[0].strip()
                     if prefix: search_terms.append(prefix)
                 else:
                     search_terms.append(v)
                 
-                # Busca se QUALQUER termo de identificação da variante está no log
                 if any(term in content for term in search_terms):
                     variant = v
                     break 
@@ -842,15 +871,16 @@ class TrackerApp(ctk.CTk):
             full_str = f"{h} ({variant})" if variant != "Base" else h
             final_heroes_data.append((h, variant, full_str))
 
-        if not found_villain or not found_env or not final_heroes_data:
+        if not final_villain_str or not found_env or not final_heroes_data:
             return None
 
         return {
             "result": result,
             "difficulty": difficulty,
-            "villain": found_villain,
+            "villain": final_villain_str,
             "environment": found_env,
-            "heroes_data": final_heroes_data
+            "heroes_data": final_heroes_data,
+            "game_type": game_type
         }
 
     def save_imported_game(self, data):
@@ -863,13 +893,14 @@ class TrackerApp(ctk.CTk):
             dt = datetime.now().strftime("%Y-%m-%d %H:%M")
             
             v_str = data["villain"]
-            if data["difficulty"] != "Normal":
+            # Adiciona sufixo de dificuldade apenas se for SOLO e não for normal
+            if data["game_type"] == "SOLO" and data["difficulty"] != "Normal":
                 v_str = f"{data['villain']} ({data['difficulty']})"
             
             h_list = [x[2] for x in data["heroes_data"]]
             
             c.execute("INSERT INTO games (date, villain, environment, result, heroes, game_type) VALUES (?, ?, ?, ?, ?, ?)", 
-                      (dt, v_str, data["environment"], data["result"], ",".join(h_list), "SOLO"))
+                      (dt, v_str, data["environment"], data["result"], ",".join(h_list), data["game_type"]))
             conn.commit()
             conn.close()
 
