@@ -338,32 +338,55 @@ class LogConfirmationModal(ctk.CTkToplevel):
         super().__init__(parent)
         self.confirm_callback = confirm_callback
         self.log_data = log_data
+        self.parent_app = parent
         
         self.title("Confirmar Importação de Log")
         self.geometry("600x750")
         self.transient(parent)
         self.grab_set()
         
-        container = ctk.CTkScrollableFrame(self)
-        container.pack(fill="both", expand=True, padx=15, pady=15)
+        self.container = ctk.CTkScrollableFrame(self)
+        self.container.pack(fill="both", expand=True, padx=15, pady=15)
         
         res_color = COLORS["success"] if log_data["result"] == "Vitória" else COLORS["danger"]
-        ctk.CTkLabel(container, text=log_data["result"].upper(), font=("Roboto", 30, "bold"), text_color=res_color).pack(pady=(10, 5))
-        ctk.CTkLabel(container, text="Resumo da Partida (Solo)", font=FONTS["h3"], text_color="gray").pack(pady=(0, 15))
+        ctk.CTkLabel(self.container, text=log_data["result"].upper(), font=("Roboto", 30, "bold"), text_color=res_color).pack(pady=(10, 5))
+        ctk.CTkLabel(self.container, text="Resumo da Partida (Solo)", font=FONTS["h3"], text_color="gray").pack(pady=(0, 15))
 
-        self._build_info_row(container, "VILÃO", f"{log_data['villain']} ({log_data['difficulty']})")
-        self._build_info_row(container, "AMBIENTE", log_data['environment'])
+        self._build_info_row(self.container, "VILÃO", f"{log_data['villain']} ({log_data['difficulty']})")
+        self._build_info_row(self.container, "AMBIENTE", log_data['environment'])
         
-        ctk.CTkFrame(container, height=2, fg_color=COLORS["separator"]).pack(fill="x", padx=20, pady=15)
+        ctk.CTkFrame(self.container, height=2, fg_color=COLORS["separator"]).pack(fill="x", padx=20, pady=15)
         
-        ctk.CTkLabel(container, text="EQUIPE IDENTIFICADA", font=FONTS["h2"]).pack(pady=10)
+        ctk.CTkLabel(self.container, text="EQUIPE IDENTIFICADA", font=FONTS["h2"]).pack(pady=(10, 0))
+        ctk.CTkLabel(self.container, text="(Clique no herói para corrigir a variante)", font=("Roboto", 11), text_color="gray").pack(pady=(0, 10))
         
-        app = parent
-        style_map = app.get_hero_achievement_styles() if hasattr(app, "get_hero_achievement_styles") else None
-        mastery_map = app.get_hero_mastery_map() if hasattr(app, "get_hero_mastery_map") else None
+        self.heroes_list_frame = ctk.CTkFrame(self.container, fg_color="transparent")
+        self.heroes_list_frame.pack(fill="x")
         
-        for h_data in log_data['heroes_data']:
+        self.render_heroes_list()
+
+        ctk.CTkFrame(self.container, height=2, fg_color=COLORS["separator"]).pack(fill="x", pady=15)
+        
+        ctk.CTkButton(self, text="CONFIRMAR E SALVAR PARTIDA", command=self.on_confirm, 
+                      fg_color=COLORS["success"], height=50, font=("Roboto", 14, "bold")).pack(fill="x", padx=20, pady=10)
+        ctk.CTkButton(self, text="Cancelar", command=self.destroy, fg_color=COLORS["danger"]).pack(fill="x", padx=20, pady=(0, 20))
+
+    def _build_info_row(self, parent, label, value):
+        f = ctk.CTkFrame(parent, fg_color="transparent")
+        f.pack(fill="x", pady=2)
+        ctk.CTkLabel(f, text=label, font=FONTS["card_label"], text_color="gray", width=100, anchor="w").pack(side="left")
+        ctk.CTkLabel(f, text=value, font=FONTS["body_bold"], anchor="w").pack(side="left")
+
+    def render_heroes_list(self):
+        for widget in self.heroes_list_frame.winfo_children():
+            widget.destroy()
+
+        style_map = self.parent_app.get_hero_achievement_styles() if hasattr(self.parent_app, "get_hero_achievement_styles") else None
+        mastery_map = self.parent_app.get_hero_mastery_map() if hasattr(self.parent_app, "get_hero_mastery_map") else None
+        
+        for index, h_data in enumerate(self.log_data['heroes_data']):
             hero_base, variant, full_str = h_data
+            
             btn_fg, btn_border, btn_text_color = COLORS["bg_card"], COLORS["border"], "white"
             icon, border_width = "", 1
             display_text = f"{hero_base}\n{variant}"
@@ -378,22 +401,27 @@ class LogConfirmationModal(ctk.CTkToplevel):
                 m_level, _ = mastery_map[hero_base]
                 display_text += f" (MR {m_level})"
 
-            card = ctk.CTkFrame(container, fg_color=btn_fg, border_width=border_width, border_color=btn_border, corner_radius=8)
+            card = ctk.CTkButton(
+                self.heroes_list_frame, 
+                text=display_text, 
+                font=FONTS["body_bold"], 
+                text_color=btn_text_color,
+                fg_color=btn_fg, 
+                border_width=border_width, 
+                border_color=btn_border, 
+                hover_color=COLORS["accent"],
+                command=lambda idx=index, h=hero_base: self.open_variant_corrector(idx, h)
+            )
             card.pack(fill="x", pady=5)
-            
-            ctk.CTkLabel(card, text=display_text, font=FONTS["body_bold"], text_color=btn_text_color).pack(pady=10)
 
-        ctk.CTkFrame(container, height=2, fg_color=COLORS["separator"]).pack(fill="x", pady=15)
-        
-        ctk.CTkButton(self, text="CONFIRMAR E SALVAR PARTIDA", command=self.on_confirm, 
-                      fg_color=COLORS["success"], height=50, font=("Roboto", 14, "bold")).pack(fill="x", padx=20, pady=10)
-        ctk.CTkButton(self, text="Cancelar", command=self.destroy, fg_color=COLORS["danger"]).pack(fill="x", padx=20, pady=(0, 20))
+    def open_variant_corrector(self, index, hero_name):
+        variants = HEROES_DATA.get(hero_name, ["Base"])
+        GridSelectionModal(self, f"Alterar variante: {hero_name}", variants, lambda v_name: self.update_hero_variant(index, hero_name, v_name))
 
-    def _build_info_row(self, parent, label, value):
-        f = ctk.CTkFrame(parent, fg_color="transparent")
-        f.pack(fill="x", pady=2)
-        ctk.CTkLabel(f, text=label, font=FONTS["card_label"], text_color="gray", width=100, anchor="w").pack(side="left")
-        ctk.CTkLabel(f, text=value, font=FONTS["body_bold"], anchor="w").pack(side="left")
+    def update_hero_variant(self, index, hero_name, new_variant):
+        full_str = f"{hero_name} ({new_variant})" if new_variant != "Base" else hero_name
+        self.log_data['heroes_data'][index] = (hero_name, new_variant, full_str)
+        self.render_heroes_list()
 
     def on_confirm(self):
         self.withdraw()
@@ -567,7 +595,7 @@ class HeroSelector(ctk.CTkFrame):
 class TrackerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Sentinels Tracker v1.4.4")
+        self.title("Sentinels Tracker v1.4.5")
         self.geometry("1300x850")
         
         self.selected_villain = None
@@ -754,8 +782,7 @@ class TrackerApp(ctk.CTk):
         solo_v_keys = SOLO_VILLAIN_DIFF.keys()
         env_keys = ENV_DIFF.keys()
         
-        # 1. ORDENAR POR TAMANHO PARA EVITAR FALSO POSITIVO (ex: achar Ra em Chrono-Ranger)
-        # Importante: Chaves maiores primeiro!
+        # 1. ORDENAR POR TAMANHO PARA EVITAR FALSO POSITIVO
         hero_keys = sorted(HEROES_DATA.keys(), key=len, reverse=True)
         
         # Identificação de Vilão e Ambiente via Turnos
@@ -769,31 +796,25 @@ class TrackerApp(ctk.CTk):
             if name in env_keys: found_env = name; continue
             elif clean_name in env_keys: found_env = clean_name; continue
 
-        # Identificação de Heróis (Com Prioridade de Tamanho e Regex Boundary)
+        # Identificação de Heróis
         detected_heroes = []
         for name in turn_takers:
-            # Pula se for vilão ou ambiente
             if name == found_villain or name == found_env: continue
             if found_villain and name in found_villain: continue
             if found_env and name in found_env: continue
 
             matched_this_turn = False
             for h_key in hero_keys:
-                # Regex procura a palavra exata do herói (evita "Ra" em "Terra")
-                # (?i) ignora case, \b é boundary
-                
-                # CORRECAO: K.N.Y.F.E. termina em ponto, entao \b falha logo apos ele
                 suffix_boundary = r"\b" if h_key[-1].isalnum() else ""
-                
                 pattern = r"(?i)\b" + re.escape(h_key) + suffix_boundary
                 
                 if re.search(pattern, name):
                     if h_key not in detected_heroes:
                         detected_heroes.append(h_key)
                     matched_this_turn = True
-                    break # Parar de procurar nessa string específica para não achar "Ra" se já achou "Chrono-Ranger"
+                    break 
         
-        # Detectar Variantes (Varrendo o texto inteiro do log)
+        # Detectar Variantes (Correção do BUG Heroic Luminary)
         final_heroes_data = []
         for h in detected_heroes:
             variant = "Base"
@@ -802,15 +823,21 @@ class TrackerApp(ctk.CTk):
             for v in possible_vars:
                 if v == "Base": continue
                 
-                # Prepara termo de busca (remove parenteses ex: "Freedom Six" de "Team Leader (Freedom Six)")
-                search_term = v
+                search_terms = []
                 if "(" in v:
-                    search_term = v.split("(")[1].replace(")", "")
+                    parts = v.split("(")
+                    # 1. Termo interno: "Heroic (Ivana)" -> "Ivana"
+                    search_terms.append(parts[1].replace(")", "").strip())
+                    # 2. Termo prefixo: "Heroic (Ivana)" -> "Heroic"
+                    prefix = parts[0].strip()
+                    if prefix: search_terms.append(prefix)
+                else:
+                    search_terms.append(v)
                 
-                # Busca no LOG INTEIRO se essa variante foi mencionada
-                if search_term in content:
+                # Busca se QUALQUER termo de identificação da variante está no log
+                if any(term in content for term in search_terms):
                     variant = v
-                    break # Prioridade para a primeira variante encontrada na lista (assumindo exclusividade)
+                    break 
             
             full_str = f"{h} ({variant})" if variant != "Base" else h
             final_heroes_data.append((h, variant, full_str))
