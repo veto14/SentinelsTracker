@@ -167,9 +167,42 @@ def init_db():
                   result TEXT,
                   heroes TEXT,
                   game_type TEXT DEFAULT 'SOLO')''')
+    
+    # Tabela para gerenciar a coleção (Habilitar/Desabilitar itens)
+    c.execute('''CREATE TABLE IF NOT EXISTS collection_config
+                 (item_type TEXT,
+                  item_name TEXT,
+                  enabled INTEGER DEFAULT 1)''')
+                  
     try:
         c.execute("ALTER TABLE games ADD COLUMN game_type TEXT DEFAULT 'SOLO'")
     except: pass
+    conn.commit()
+    conn.close()
+    
+    sync_collection_db()
+
+def sync_collection_db():
+    # Garante que todos os itens do código existam no banco de dados de coleção
+    conn = sqlite3.connect('sentinels_history.db')
+    c = conn.cursor()
+    
+    # Mapeamento do que existe no código
+    code_items = []
+    for h in HEROES_DATA.keys(): code_items.append(("Hero", h))
+    for v in SOLO_VILLAINS_DATA.keys(): code_items.append(("SoloVillain", v))
+    for v in TEAM_VILLAINS_LIST: code_items.append(("TeamVillain", v))
+    for e in AMBIENTES: code_items.append(("Environment", e))
+    
+    # O que já está no banco
+    c.execute("SELECT item_type, item_name FROM collection_config")
+    db_rows = c.fetchall()
+    db_set = set(db_rows)
+    
+    for type_, name in code_items:
+        if (type_, name) not in db_set:
+            c.execute("INSERT INTO collection_config (item_type, item_name, enabled) VALUES (?, ?, 1)", (type_, name))
+    
     conn.commit()
     conn.close()
 
@@ -460,6 +493,50 @@ class LogTypeSelectionModal(ctk.CTkToplevel):
         self.destroy()
         self.callback(path)
 
+class CollectionManagerModal(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent_app = parent
+        self.title("Gerenciar Coleção")
+        self.geometry("1000x800")
+        self.transient(parent)
+        self.grab_set()
+        
+        ctk.CTkLabel(self, text="GERENCIAR COLEÇÃO", font=FONTS["h1"]).pack(pady=(20, 10))
+        ctk.CTkLabel(self, text="Desabilite itens que você não possui para não aparecerem nas listas e achievements.", font=FONTS["body"], text_color="gray").pack(pady=(0, 15))
+        
+        self.tab_view = ctk.CTkTabview(self)
+        self.tab_view.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        self.tabs = {}
+        for cat in ["Heróis", "Vilões Solo", "Vilões Time", "Ambientes"]:
+            self.tabs[cat] = self.tab_view.add(cat)
+            self.create_toggle_list(cat)
+            
+    def create_toggle_list(self, category):
+        scroll = ctk.CTkScrollableFrame(self.tabs[category])
+        scroll.pack(fill="both", expand=True, padx=10, pady=10)
+        scroll.grid_columnconfigure(0, weight=1); scroll.grid_columnconfigure(1, weight=1); scroll.grid_columnconfigure(2, weight=1)
+        
+        items = []
+        db_type = ""
+        if category == "Heróis": items = sorted(list(HEROES_DATA.keys())); db_type = "Hero"
+        elif category == "Vilões Solo": items = sorted(list(SOLO_VILLAINS_DATA.keys())); db_type = "SoloVillain"
+        elif category == "Vilões Time": items = TEAM_VILLAINS_LIST; db_type = "TeamVillain"
+        elif category == "Ambientes": items = AMBIENTES; db_type = "Environment"
+        
+        for i, item in enumerate(items):
+            is_enabled = self.parent_app.is_item_enabled(db_type, item)
+            var = ctk.BooleanVar(value=is_enabled)
+            
+            cb = ctk.CTkSwitch(scroll, text=item, variable=var, font=FONTS["body"],
+                               command=lambda t=db_type, n=item, v=var: self.toggle(t, n, v))
+            cb.grid(row=i//3, column=i%3, sticky="w", padx=10, pady=5)
+
+    def toggle(self, type_, name, var):
+        new_val = 1 if var.get() else 0
+        self.parent_app.update_item_state(type_, name, new_val)
+
 class VillainSelector(ctk.CTkFrame):
     def __init__(self, master, index, controller=None, **kwargs):
         super().__init__(master, corner_radius=12, border_width=1, border_color=COLORS["border"], fg_color=COLORS["bg_card"], **kwargs)
@@ -472,7 +549,9 @@ class VillainSelector(ctk.CTkFrame):
 
     def open_grid(self):
         parent = self.controller if self.controller else self.winfo_toplevel()
-        GridSelectionModal(parent, "Selecione o Vilão", TEAM_VILLAINS_LIST, self.update_selection)
+        # Filtra lista
+        enabled_list = parent.get_enabled_list("TeamVillain", TEAM_VILLAINS_LIST)
+        GridSelectionModal(parent, "Selecione o Vilão", enabled_list, self.update_selection)
 
     def update_selection(self, name):
         self.selected_villain = name
@@ -497,7 +576,9 @@ class EnvironmentSelector(ctk.CTkFrame):
 
     def open_grid(self):
         parent = self.controller if self.controller else self.winfo_toplevel()
-        GridSelectionModal(parent, "Selecione o Ambiente", AMBIENTES, self.update_selection)
+        # Filtra lista
+        enabled_list = parent.get_enabled_list("Environment", AMBIENTES)
+        GridSelectionModal(parent, "Selecione o Ambiente", enabled_list, self.update_selection)
 
     def update_selection(self, name):
         self.selected_env = name
@@ -530,8 +611,12 @@ class HeroSelector(ctk.CTkFrame):
         app = self.controller if self.controller else self.winfo_toplevel()
         style_map = app.get_hero_achievement_styles() if hasattr(app, "get_hero_achievement_styles") else None
         mastery_map = app.get_hero_mastery_map() if hasattr(app, "get_hero_mastery_map") else None
-        hero_names = sorted(list(HEROES_DATA.keys()))
-        GridSelectionModal(app, "Selecione um Herói", hero_names, self.update_hero_selection, style_map=style_map, mastery_map=mastery_map)
+        
+        # Filtra lista
+        full_list = sorted(list(HEROES_DATA.keys()))
+        enabled_list = app.get_enabled_list("Hero", full_list)
+        
+        GridSelectionModal(app, "Selecione um Herói", enabled_list, self.update_hero_selection, style_map=style_map, mastery_map=mastery_map)
 
     def update_hero_selection(self, hero_name):
         self.selected_hero_name = hero_name
@@ -602,6 +687,9 @@ class TrackerApp(ctk.CTk):
         self.title("Sentinels Tracker v1.4.6")
         self.geometry("1300x850")
         
+        self.collection_state = {}
+        self.load_collection_state()
+        
         self.selected_villain = None
         self.selected_env = None
         self.selected_analysis_hero = None
@@ -630,6 +718,31 @@ class TrackerApp(ctk.CTk):
         self.setup_hero_tab_structure()
         
         self.after(500, self.refresh_all_data) 
+        
+    def load_collection_state(self):
+        conn = sqlite3.connect('sentinels_history.db')
+        c = conn.cursor()
+        c.execute("SELECT item_type, item_name, enabled FROM collection_config")
+        rows = c.fetchall()
+        conn.close()
+        self.collection_state = {(r[0], r[1]): bool(r[2]) for r in rows}
+        
+    def is_item_enabled(self, type_, name):
+        return self.collection_state.get((type_, name), True)
+    
+    def get_enabled_list(self, type_, full_list):
+        return [item for item in full_list if self.is_item_enabled(type_, item)]
+        
+    def update_item_state(self, type_, name, state):
+        conn = sqlite3.connect('sentinels_history.db')
+        c = conn.cursor()
+        c.execute("UPDATE collection_config SET enabled=? WHERE item_type=? AND item_name=?", (state, type_, name))
+        conn.commit()
+        conn.close()
+        self.collection_state[(type_, name)] = bool(state)
+        # Refresh achievements if viewing hero analysis
+        if self.selected_analysis_hero:
+            self.calculate_aggregate_hero_stats(self.selected_analysis_hero)
 
     # --- ABA 1: REGISTRO ---
     def setup_register_tab(self):
@@ -637,6 +750,11 @@ class TrackerApp(ctk.CTk):
         self.tab_reg.grid_rowconfigure(0, weight=1)
         self.left_panel = ctk.CTkFrame(self.tab_reg, fg_color="transparent")
         self.left_panel.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+        # Botão de Gerenciar Coleção
+        self.btn_manage_coll = ctk.CTkButton(self.left_panel, text="GERENCIAR COLEÇÃO", command=lambda: CollectionManagerModal(self),
+                                             fg_color="#333", border_width=1, border_color="#555", font=FONTS["body_bold"])
+        self.btn_manage_coll.pack(fill="x", pady=(0, 15))
 
         self.card_mode = ctk.CTkFrame(self.left_panel, corner_radius=12, fg_color=COLORS["bg_card"])
         self.card_mode.pack(fill="x", pady=(0, 15))
@@ -917,8 +1035,9 @@ class TrackerApp(ctk.CTk):
             messagebox.showerror("Erro ao Salvar", str(e))
 
     def open_multi_hero_select(self):
-        hero_names = sorted(list(HEROES_DATA.keys()))
-        MultiSelectionModal(self, "Selecione o Time de Heróis", hero_names, self.on_multi_hero_selected, max_selection=5)
+        full_list = sorted(list(HEROES_DATA.keys()))
+        enabled_list = self.get_enabled_list("Hero", full_list)
+        MultiSelectionModal(self, "Selecione o Time de Heróis", enabled_list, self.on_multi_hero_selected, max_selection=5)
 
     def on_multi_hero_selected(self, selected_list):
         if not selected_list: return
@@ -931,7 +1050,8 @@ class TrackerApp(ctk.CTk):
                 self.hero_selectors[i].set_hero_data(h, v)
 
     def open_multi_villain_select(self):
-        MultiSelectionModal(self, "Selecione o Time de Vilões", TEAM_VILLAINS_LIST, self.on_multi_villain_selected, max_selection=5)
+        enabled_list = self.get_enabled_list("TeamVillain", TEAM_VILLAINS_LIST)
+        MultiSelectionModal(self, "Selecione o Time de Vilões", enabled_list, self.on_multi_villain_selected, max_selection=5)
 
     def on_multi_villain_selected(self, selected_list):
         if not selected_list: return
@@ -1148,7 +1268,8 @@ class TrackerApp(ctk.CTk):
 
     def open_villain_grid(self):
         villains = sorted(list(SOLO_VILLAINS_DATA.keys()))
-        GridSelectionModal(self, "Selecionar Vilão", villains, self.on_villain_selected)
+        enabled_list = self.get_enabled_list("SoloVillain", villains)
+        GridSelectionModal(self, "Selecionar Vilão", enabled_list, self.on_villain_selected)
 
     def on_villain_selected(self, villain):
         self.selected_villain = villain
@@ -1164,14 +1285,21 @@ class TrackerApp(ctk.CTk):
         self.lbl_villain_diff.configure(text=f"Modo: {diff}", text_color=COLORS["highlight"])
         if self.combo_solo_mode: self.combo_solo_mode.set(diff)
 
-    def open_env_grid(self): GridSelectionModal(self, "Selecionar Ambiente", AMBIENTES, self.on_env_selected)
+    def open_env_grid(self):
+        enabled_list = self.get_enabled_list("Environment", AMBIENTES)
+        GridSelectionModal(self, "Selecionar Ambiente", enabled_list, self.on_env_selected)
+        
     def on_env_selected(self, env): self.selected_env = env; self.btn_select_env.configure(text=env, fg_color=COLORS["accent"])
 
     def open_analysis_hero_grid(self):
         hero_stats_map = self.get_all_heroes_stats_map()
         style_map = self.get_hero_achievement_styles()
         mastery_map = self.get_hero_mastery_map()
-        sorted_heroes = sorted(list(HEROES_DATA.keys()), key=lambda x: (mastery_map.get(x, (0,0))[0], hero_stats_map.get(x, (0,0))[0], hero_stats_map.get(x, (0,0))[1]), reverse=True)
+        full_heroes = list(HEROES_DATA.keys())
+        # Filtra lista
+        enabled_heroes = self.get_enabled_list("Hero", full_heroes)
+        
+        sorted_heroes = sorted(enabled_heroes, key=lambda x: (mastery_map.get(x, (0,0))[0], hero_stats_map.get(x, (0,0))[0], hero_stats_map.get(x, (0,0))[1]), reverse=True)
         GridSelectionModal(self, "Analisar Herói", sorted_heroes, self.on_analysis_hero_selected, item_stats=hero_stats_map, style_map=style_map, mastery_map=mastery_map)
 
     def on_analysis_hero_selected(self, hero_name):
@@ -1402,7 +1530,10 @@ class TrackerApp(ctk.CTk):
         rows = c.fetchall()
         conn.close()
         hero_villains_normal, hero_villains_ultimate, hero_variants_wins = defaultdict(set), defaultdict(set), defaultdict(int)
-        all_villains = set(SOLO_VILLAINS_DATA.keys()) 
+        
+        # Filtra vilões disponíveis
+        full_villains_list = list(SOLO_VILLAINS_DATA.keys())
+        enabled_villains = set(self.get_enabled_list("SoloVillain", full_villains_list))
 
         for h_str, v_str, res, g_type in rows:
             is_win = (res == "Vitória")
@@ -1418,7 +1549,7 @@ class TrackerApp(ctk.CTk):
             for h_full in h_list:
                 h_base = h_full.split(" (")[0]
                 hero_variants_wins[h_full] += 1
-                if villain_base and villain_base in all_villains:
+                if villain_base and villain_base in enabled_villains:
                     if is_normal: hero_villains_normal[h_base].add(villain_base)
                     if is_ultimate: hero_villains_ultimate[h_base].add(villain_base)
 
@@ -1453,7 +1584,7 @@ class TrackerApp(ctk.CTk):
 
             defeated_norm = len(hero_villains_normal[hero])
             defeated_ult = len(hero_villains_ultimate[hero])
-            total_unique = len(all_villains)
+            total_unique = len(enabled_villains)
             if total_unique > 0:
                 if defeated_ult >= total_unique: style['border_color'] = COLORS["rank_gold"]
                 elif defeated_norm >= total_unique: style['border_color'] = COLORS["rank_silver"]
@@ -1668,12 +1799,21 @@ class TrackerApp(ctk.CTk):
 
         self.create_achievement_card("RANQUE DE HERÓI (MR)", f"Atual: {curr_rank}", mastery_level, next_goal, prog, curr_color, disp_next)
 
-        all_v = set(SOLO_VILLAINS_DATA.keys())
-        missing_n = sorted(list(all_v - villains_norm))
-        self.create_achievement_card("MAESTRIA NORMAL (Borda Prata)", f"Derrotou {len(villains_norm)}/{len(all_v)} Vilões", len(villains_norm), len(all_v), len(villains_norm)/len(all_v) if all_v else 0, COLORS["rank_silver"], "Derrote todos os vilões.", missing_n)
+        # Filtra vilões habilitados
+        full_villains = list(SOLO_VILLAINS_DATA.keys())
+        enabled_villains = set(self.get_enabled_list("SoloVillain", full_villains))
+        
+        # Só conta as vitórias em vilões que você possui
+        relevant_wins_norm = villains_norm.intersection(enabled_villains)
+        relevant_wins_ult = villains_ult.intersection(enabled_villains)
 
-        missing_u = sorted(list(all_v - villains_ult))
-        self.create_achievement_card("MAESTRIA ULTIMATE (Borda Ouro)", f"Derrotou {len(villains_ult)}/{len(all_v)} Vilões (Ultimate)", len(villains_ult), len(all_v), len(villains_ult)/len(all_v) if all_v else 0, COLORS["rank_gold"], "Derrote todos em Ultimate.", missing_u)
+        missing_n = sorted(list(enabled_villains - relevant_wins_norm))
+        len_enabled = len(enabled_villains)
+        
+        self.create_achievement_card("MAESTRIA NORMAL (Borda Prata)", f"Derrotou {len(relevant_wins_norm)}/{len_enabled} Vilões", len(relevant_wins_norm), len_enabled, len(relevant_wins_norm)/len_enabled if len_enabled else 0, COLORS["rank_silver"], "Derrote todos os vilões habilitados.", missing_n)
+
+        missing_u = sorted(list(enabled_villains - relevant_wins_ult))
+        self.create_achievement_card("MAESTRIA ULTIMATE (Borda Ouro)", f"Derrotou {len(relevant_wins_ult)}/{len_enabled} Vilões (Ultimate)", len(relevant_wins_ult), len_enabled, len(relevant_wins_ult)/len_enabled if len_enabled else 0, COLORS["rank_gold"], "Derrote todos em Ultimate (habilitados).", missing_u)
 
         vars = HEROES_DATA.get(hero_name, [])
         done_vars = 0; miss_vars = []
@@ -1924,6 +2064,7 @@ class TrackerApp(ctk.CTk):
         update_card("villain_hard", sorted(valid_v, key=lambda x: (x[1][0]/x[1][1], x[1][1]))[:5], True)
         top_e = sorted(e_stats.items(), key=lambda x: x[1][1], reverse=True)[:5]
         update_card("env_played", top_e)
+
 
     def calculate_details(self):
         raw_mode = self.seg_stats_mode.get() if self.seg_stats_mode else "Stats Solo"
