@@ -831,9 +831,11 @@ class TrackerApp(ctk.CTk):
         for name in turn_takers:
             # Pula se for vilão identificado ou ambiente
             if name == found_solo_villain or name == found_env: continue
-            if found_solo_villain and name in found_solo_villain: continue
             if found_env and name in found_env: continue
             if name in found_team_villains: continue
+            
+            # Pula se o nome for de fato uma parte do vilão (ex: minion), mas não se for um herói cujo nome está dentro do nome do vilão
+            if found_solo_villain and found_solo_villain in name: continue
 
             matched_this_turn = False
             for h_key in hero_keys:
