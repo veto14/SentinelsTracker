@@ -121,7 +121,7 @@ HERO_COMPLEXITY = {
 
 SOLO_VILLAIN_DIFF = {
     "Baron Blade": 1, "Mad Bomber Blade": 2, "Citizen Dawn": 4, "Grand Warlord Voss": 3,
-    "Omnitron": 1, "Cosmic Omnitron": 3, "Ambuscade": 1, "Spite": 2, "Agent of Gloom Spite": 3,
+    "Omnitron": 2, "Cosmic Omnitron": 3, "Ambuscade": 1, "Spite": 2, "Agent of Gloom Spite": 3,
     "Chairman": 4, "Akash'Bhuta": 2, "GloomWeaver": 1, "Skinwalker GloomWeaver": 3,
     "Matriarch": 3, "Miss Information": 4, "Plague Rat": 2, "Ennead": 3, "Apostate": 2,
     "Iron Legacy": 5, "Kismet": 2, "Unstable Kismet": 3, "La Capitan": 2, "Dreamer": 3,
@@ -2064,7 +2064,6 @@ class TrackerApp(ctk.CTk):
         update_card("villain_hard", sorted(valid_v, key=lambda x: (x[1][0]/x[1][1], x[1][1]))[:5], True)
         top_e = sorted(e_stats.items(), key=lambda x: x[1][1], reverse=True)[:5]
         update_card("env_played", top_e)
-
 
     def calculate_details(self):
         raw_mode = self.seg_stats_mode.get() if self.seg_stats_mode else "Stats Solo"
